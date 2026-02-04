@@ -11,6 +11,7 @@ import {
   deleteReceivedFile,
 } from './services/d1';
 import { deleteFile } from './services/r2';
+import { cleanupOldAttempts } from './services/ratelimit';
 
 /**
  * 定期クリーンアップ処理
@@ -56,6 +57,10 @@ export async function handleScheduled(
         console.error(`受信ファイル削除エラー (${file.id}):`, error);
       }
     }
+
+    // レート制限の古いレコードを削除
+    const cleanedAttempts = await cleanupOldAttempts(env.DB);
+    console.log(`レート制限レコード削除: ${cleanedAttempts}件`);
 
     console.log(
       `クリーンアップ完了: 送信ファイル ${deletedFiles}件, 受信ファイル ${deletedReceivedFiles}件 削除`
