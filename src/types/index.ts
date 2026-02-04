@@ -27,6 +27,8 @@ export interface Env {
   DB: D1Database;
   /** Email Sendingバインディング */
   EMAIL?: SendEmailBinding;
+  /** 送信元メールアドレス */
+  EMAIL_FROM?: string;
   /** 認証スキップフラグ（開発環境用） */
   SKIP_AUTH?: string;
   /** Cloudflare Accessチーム名 */

@@ -9,6 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 # 開発環境では認証をスキップ
 [vars]
 SKIP_AUTH = "true"
+EMAIL_FROM = "noreply@example.com"  # 実際のEmail Routing検証済みアドレスに置き換えてください
 
 # R2バケット
 [[r2_buckets]]
@@ -34,7 +35,7 @@ crons = ["0 18 * * *"]
 # 本番環境設定
 # =====================================================
 [env.production]
-vars = { SKIP_AUTH = "false" }
+vars = { SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com" }  # EMAIL_FROMは実際のアドレスに置き換え
 
 [[env.production.r2_buckets]]
 binding = "R2_BUCKET"

@@ -191,6 +191,7 @@ src/
 | 変数名 | 説明 | 設定方法 |
 |-------|------|---------|
 | `SKIP_AUTH` | 認証スキップ（開発用） | wrangler.toml |
+| `EMAIL_FROM` | 送信元メールアドレス（Email Routing検証済み） | wrangler.toml |
 | `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 | wrangler.toml |
 | `ACCESS_AUD` | Cloudflare Access AUD | wrangler.toml |
 

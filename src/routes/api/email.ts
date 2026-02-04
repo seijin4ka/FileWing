@@ -89,9 +89,14 @@ email.post('/links/:id/send', async (c) => {
     const url = new URL(c.req.url);
     const downloadUrl = `${url.origin}/d/${link.token}`;
 
-    // 送信元メールアドレス（Email Routingで検証済みのドメイン）
-    // 注意: 実際の運用ではEmail Routingで設定したドメインのアドレスを使用
-    const fromEmail = `noreply@${url.hostname}`;
+    // 送信元メールアドレス（環境変数から取得、未設定時はエラー）
+    const fromEmail = c.env.EMAIL_FROM;
+    if (!fromEmail) {
+      return c.json(
+        { success: false, error: '送信元メールアドレスが設定されていません。EMAIL_FROM環境変数を設定してください。' },
+        503
+      );
+    }
 
     // メール本文を生成
     const senderName = user.name || user.email;

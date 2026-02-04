@@ -79,6 +79,7 @@ account_id = "your-account-id"
 
 [vars]
 SKIP_AUTH = "true"
+EMAIL_FROM = "noreply@your-verified-domain.com"
 
 [[r2_buckets]]
 binding = "R2_BUCKET"
@@ -97,7 +98,7 @@ name = "EMAIL"
 crons = ["0 18 * * *"]
 
 [env.production]
-vars = { SKIP_AUTH = "false" }
+vars = { SKIP_AUTH = "false", EMAIL_FROM = "noreply@your-verified-domain.com" }
 
 [[env.production.r2_buckets]]
 binding = "R2_BUCKET"
