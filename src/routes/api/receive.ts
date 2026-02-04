@@ -16,6 +16,7 @@ import {
   markReceivedFileDownloaded,
 } from '../../services/d1';
 import { getFile } from '../../services/r2';
+import { hashPassword } from '../../utils/crypto';
 
 const receive = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -37,15 +38,10 @@ receive.post('/receive-links', async (c) => {
 
     const expiresDays = body.expires_days || 7;
 
-    // パスワードハッシュ
+    // パスワードハッシュ（PBKDF2 + ソルトで強力なハッシュを生成）
     let passwordHash: string | undefined;
     if (body.password) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(body.password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      passwordHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+      passwordHash = await hashPassword(body.password);
     }
 
     const link = await createReceiveLink(
