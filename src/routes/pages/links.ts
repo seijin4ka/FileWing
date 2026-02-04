@@ -34,10 +34,6 @@ links.get('/', async (c) => {
   );
   const totalDownloads = linkList.reduce((sum, l) => sum + l.download_count, 0);
 
-  const linkCountText = lang === 'ja'
-    ? `${linkList.length}${get('links.linkCount')}`
-    : `${linkList.length}${get('links.linkCount')}`;
-
   const content = `
     <div class="space-y-6">
       <!-- ページヘッダー -->
@@ -92,7 +88,7 @@ links.get('/', async (c) => {
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                ${linkList.map((link) => renderLinkRow(link, baseUrl, get)).join('')}
+                ${linkList.map((link) => renderLinkRow(link, get)).join('')}
               </tbody>
             </table>
           </div>
@@ -256,7 +252,6 @@ links.get('/', async (c) => {
  */
 function renderLinkRow(
   link: DownloadLink & { file_name: string; file_size: number },
-  baseUrl: string,
   get: (key: string) => string
 ): string {
   const isExpired = new Date(link.expires_at) < new Date();
