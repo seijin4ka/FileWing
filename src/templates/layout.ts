@@ -32,17 +32,44 @@ export function layout(options: LayoutOptions, content: string): string {
       theme: {
         extend: {
           colors: {
+            // 主調色: 濃紺
             primary: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
+              50: '#f0f7fa',
+              100: '#d9eaf2',
+              200: '#b3d5e5',
+              300: '#8cbfd8',
+              400: '#5299bc',
+              500: '#27668a',
+              600: '#1f5270',
+              700: '#183f56',
+              800: '#102b3c',
+              900: '#081822',
+            },
+            // アクセント: ピンク
+            accent: {
+              50: '#fff0f3',
+              100: '#ffe0e8',
+              200: '#ffc1d1',
+              300: '#ff92ae',
+              400: '#ff6088',
+              500: '#ff3066',
+              600: '#ed1152',
+              700: '#c80843',
+              800: '#a6093d',
+              900: '#8a0c39',
+            },
+            // サブアクセント: 水色
+            sky: {
+              50: '#f0faff',
+              100: '#e0f4fe',
+              200: '#b9eafd',
+              300: '#7cdbfc',
+              400: '#52b7fd',
+              500: '#1a9beb',
+              600: '#0d7cc9',
+              700: '#0d63a3',
+              800: '#105386',
+              900: '#13456f',
             }
           }
         }
@@ -55,13 +82,13 @@ export function layout(options: LayoutOptions, content: string): string {
       transition: all 0.3s ease;
     }
     .dropzone.dragover {
-      border-color: #0ea5e9;
-      background-color: #f0f9ff;
+      border-color: #27668a;
+      background-color: #f0f7fa;
     }
     /* ローディングスピナー */
     .spinner {
       border: 3px solid #f3f3f3;
-      border-top: 3px solid #0ea5e9;
+      border-top: 3px solid #27668a;
       border-radius: 50%;
       width: 24px;
       height: 24px;
@@ -145,26 +172,27 @@ export function layout(options: LayoutOptions, content: string): string {
  */
 function renderHeader(user?: { email: string; name?: string } | null): string {
   return `
-  <header class="bg-white shadow-sm border-b">
+  <header class="bg-primary-500 shadow-lg">
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center space-x-8">
-          <a href="/" class="text-xl font-bold text-primary-600">
+          <a href="/" class="text-xl font-bold text-white">
             ファイル共有
           </a>
           ${user ? `
           <nav class="hidden md:flex space-x-6">
-            <a href="/" class="text-gray-600 hover:text-primary-600 transition-colors">ダッシュボード</a>
-            <a href="/upload" class="text-gray-600 hover:text-primary-600 transition-colors">アップロード</a>
-            <a href="/files" class="text-gray-600 hover:text-primary-600 transition-colors">ファイル一覧</a>
+            <a href="/" class="text-primary-100 hover:text-white transition-colors">ダッシュボード</a>
+            <a href="/upload" class="text-primary-100 hover:text-white transition-colors">送信</a>
+            <a href="/receive" class="text-primary-100 hover:text-white transition-colors">受信</a>
+            <a href="/files" class="text-primary-100 hover:text-white transition-colors">管理</a>
           </nav>
           ` : ''}
         </div>
         ${user ? `
         <div class="flex items-center space-x-4">
-          <span class="text-sm text-gray-600">${escapeHtml(user.name || user.email)}</span>
-          <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-            <span class="text-primary-600 font-medium">${escapeHtml((user.name || user.email)[0].toUpperCase())}</span>
+          <span class="text-sm text-primary-100">${escapeHtml(user.name || user.email)}</span>
+          <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+            <span class="text-white font-medium">${escapeHtml((user.name || user.email)[0].toUpperCase())}</span>
           </div>
         </div>
         ` : ''}
