@@ -10,6 +10,8 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import type { Env, Variables } from './types';
 import { authMiddleware } from './middleware/auth';
+import { languageMiddleware } from './middleware/language';
+import { createTranslator, DEFAULT_LANGUAGE } from './i18n';
 
 // API ルート
 import filesApi from './routes/api/files';
@@ -34,6 +36,9 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ロギング
 app.use('*', logger());
+
+// 言語設定
+app.use('*', languageMiddleware);
 
 // CORS設定（必要に応じて調整）
 app.use(
@@ -106,22 +111,26 @@ app.notFound((c) => {
     return c.json({ success: false, error: 'エンドポイントが見つかりません' }, 404);
   }
 
+  // 言語を取得
+  const lang = c.get('lang') || DEFAULT_LANGUAGE;
+  const { get } = createTranslator(lang);
+
   // それ以外はHTMLページ
   return c.html(
     `<!DOCTYPE html>
-<html lang="ja">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ページが見つかりません - ファイル共有システム</title>
+  <title>${get('notFound.title')} - ${get('common.appName')}</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen flex items-center justify-center">
   <div class="text-center">
     <h1 class="text-6xl font-bold text-gray-300">404</h1>
-    <p class="mt-4 text-xl text-gray-600">ページが見つかりません</p>
+    <p class="mt-4 text-xl text-gray-600">${get('notFound.message')}</p>
     <a href="/" class="mt-6 inline-block px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-      ホームに戻る
+      ${get('notFound.backHome')}
     </a>
   </div>
 </body>

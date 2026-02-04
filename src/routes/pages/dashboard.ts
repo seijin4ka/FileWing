@@ -4,11 +4,12 @@
  */
 
 import { Hono } from 'hono';
-import type { Env, Variables } from '../../types';
+import type { Env, Variables, Language } from '../../types';
 import { layout, formatFileSize, formatRelativeTime } from '../../templates/layout';
 import { statCard, icons } from '../../templates/components/card';
 import { linkButton } from '../../templates/components/button';
 import { getUserStats, getRecentActivity } from '../../services/d1';
+import { createTranslator } from '../../i18n';
 
 const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -19,6 +20,8 @@ const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 dashboard.get('/', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // 統計情報を取得
   const stats = await getUserStats(c.env.DB, userId);
@@ -31,31 +34,31 @@ dashboard.get('/', async (c) => {
       <!-- ページヘッダー -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">ダッシュボード</h1>
-          <p class="text-gray-600">ようこそ、${user.name || user.email} さん</p>
+          <h1 class="text-2xl font-bold text-gray-900">${get('dashboard.title')}</h1>
+          <p class="text-gray-600">${get('dashboard.welcome')}, ${user.name || user.email}</p>
         </div>
-        ${linkButton({ text: 'ファイルをアップロード', href: '/upload', variant: 'primary', icon: icons.upload })}
+        ${linkButton({ text: get('dashboard.uploadNewFile'), href: '/upload', variant: 'primary', icon: icons.upload })}
       </div>
 
       <!-- 統計カード -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        ${statCard({ label: 'ファイル数', value: stats.total_files, icon: icons.file })}
-        ${statCard({ label: 'ストレージ使用量', value: formatFileSize(stats.total_size), icon: icons.storage })}
-        ${statCard({ label: '有効なリンク', value: stats.active_links, icon: icons.link })}
-        ${statCard({ label: '総ダウンロード数', value: stats.total_downloads, icon: icons.download })}
+        ${statCard({ label: get('dashboard.stats.totalFiles'), value: stats.total_files, icon: icons.file })}
+        ${statCard({ label: get('dashboard.stats.activeLinks'), value: formatFileSize(stats.total_size), icon: icons.storage })}
+        ${statCard({ label: get('dashboard.stats.activeLinks'), value: stats.active_links, icon: icons.link })}
+        ${statCard({ label: get('dashboard.stats.totalDownloads'), value: stats.total_downloads, icon: icons.download })}
       </div>
 
       <!-- 最近のアクティビティ -->
       <div class="bg-white rounded-lg shadow-sm border">
         <div class="px-6 py-4 border-b">
-          <h2 class="text-lg font-semibold text-gray-900">最近のアクティビティ</h2>
+          <h2 class="text-lg font-semibold text-gray-900">${get('dashboard.recentActivity')}</h2>
         </div>
         <div class="divide-y">
           ${activities.length === 0 ? `
             <div class="px-6 py-12 text-center text-gray-500">
-              まだアクティビティはありません
+              ${get('common.noData')}
             </div>
-          ` : activities.map(renderActivityItem).join('')}
+          ` : activities.map((a) => renderActivityItem(a, lang)).join('')}
         </div>
       </div>
 
@@ -67,8 +70,8 @@ dashboard.get('/', async (c) => {
               ${icons.upload}
             </div>
             <div>
-              <h3 class="font-medium text-gray-900">ファイルをアップロード</h3>
-              <p class="text-sm text-gray-500">新しいファイルを共有</p>
+              <h3 class="font-medium text-gray-900">${get('dashboard.uploadNewFile')}</h3>
+              <p class="text-sm text-gray-500">${lang === 'ja' ? '新しいファイルを共有' : 'Share new files'}</p>
             </div>
           </div>
         </a>
@@ -78,12 +81,12 @@ dashboard.get('/', async (c) => {
               ${icons.file}
             </div>
             <div>
-              <h3 class="font-medium text-gray-900">ファイル一覧</h3>
-              <p class="text-sm text-gray-500">アップロード済みファイルを管理</p>
+              <h3 class="font-medium text-gray-900">${get('nav.files')}</h3>
+              <p class="text-sm text-gray-500">${lang === 'ja' ? 'アップロード済みファイルを管理' : 'Manage uploaded files'}</p>
             </div>
           </div>
         </a>
-        <div class="block p-6 bg-white rounded-lg shadow-sm border">
+        <a href="/receive" class="block p-6 bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
           <div class="flex items-center space-x-4">
             <div class="p-3 bg-green-100 rounded-lg">
               <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,33 +94,43 @@ dashboard.get('/', async (c) => {
               </svg>
             </div>
             <div>
-              <h3 class="font-medium text-gray-900">セキュア共有</h3>
-              <p class="text-sm text-gray-500">パスワード・期限付きリンク</p>
+              <h3 class="font-medium text-gray-900">${get('dashboard.createReceiveLink')}</h3>
+              <p class="text-sm text-gray-500">${lang === 'ja' ? 'ゲストからファイルを受け取る' : 'Receive files from guests'}</p>
             </div>
           </div>
-        </div>
+        </a>
       </div>
     </div>
   `;
 
-  return c.html(layout({ title: 'ダッシュボード', user }, content));
+  return c.html(layout({ title: get('dashboard.title'), user, lang }, content));
 });
 
 /**
  * アクティビティアイテムをレンダリング
  */
-function renderActivityItem(activity: {
-  type: 'upload' | 'download' | 'link_created';
-  file_name: string;
-  created_at: string;
-  details?: string | null;
-}): string {
-  const typeLabels = {
+function renderActivityItem(
+  activity: {
+    type: 'upload' | 'download' | 'link_created';
+    file_name: string;
+    created_at: string;
+    details?: string | null;
+  },
+  lang: Language
+): string {
+  const typeLabelsJa = {
     upload: { label: 'アップロード', color: 'bg-blue-100 text-blue-600' },
     download: { label: 'ダウンロード', color: 'bg-green-100 text-green-600' },
     link_created: { label: 'リンク作成', color: 'bg-purple-100 text-purple-600' },
   };
 
+  const typeLabelsEn = {
+    upload: { label: 'Upload', color: 'bg-blue-100 text-blue-600' },
+    download: { label: 'Download', color: 'bg-green-100 text-green-600' },
+    link_created: { label: 'Link Created', color: 'bg-purple-100 text-purple-600' },
+  };
+
+  const typeLabels = lang === 'ja' ? typeLabelsJa : typeLabelsEn;
   const { label, color } = typeLabels[activity.type];
 
   return `

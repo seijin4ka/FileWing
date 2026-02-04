@@ -3,6 +3,9 @@
  * Tailwind CSSを使用したHTMLレイアウト
  */
 
+import type { Language } from '../types';
+import { LANGUAGE_NAMES, createTranslator } from '../i18n';
+
 export interface LayoutOptions {
   /** ページタイトル */
   title: string;
@@ -12,20 +15,23 @@ export interface LayoutOptions {
   bodyClass?: string;
   /** ヘッダーを非表示にするか */
   hideHeader?: boolean;
+  /** 言語設定 */
+  lang?: Language;
 }
 
 /**
  * 共通HTMLレイアウト
  */
 export function layout(options: LayoutOptions, content: string): string {
-  const { title, user, bodyClass = '', hideHeader = false } = options;
+  const { title, user, bodyClass = '', hideHeader = false, lang = 'ja' } = options;
+  const { get } = createTranslator(lang);
 
   return `<!DOCTYPE html>
-<html lang="ja">
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - ファイル共有システム</title>
+  <title>${escapeHtml(title)} - ${get('common.appName')}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -109,7 +115,7 @@ export function layout(options: LayoutOptions, content: string): string {
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen ${bodyClass}">
-  ${hideHeader ? '' : renderHeader(user)}
+  ${hideHeader ? '' : renderHeader(user, lang)}
 
   <main class="container mx-auto px-4 py-8">
     ${content}
@@ -170,32 +176,40 @@ export function layout(options: LayoutOptions, content: string): string {
 /**
  * ヘッダーをレンダリング
  */
-function renderHeader(user?: { email: string; name?: string } | null): string {
+function renderHeader(user?: { email: string; name?: string } | null, lang: Language = 'ja'): string {
+  const { get } = createTranslator(lang);
+  const otherLang = lang === 'ja' ? 'en' : 'ja';
+  const otherLangName = LANGUAGE_NAMES[otherLang];
+
   return `
   <header class="bg-primary-500 shadow-lg">
     <div class="container mx-auto px-4">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center space-x-8">
           <a href="/" class="text-xl font-bold text-white">
-            ファイル共有
+            ${get('common.appName')}
           </a>
           ${user ? `
           <nav class="hidden md:flex space-x-6">
-            <a href="/" class="text-primary-100 hover:text-white transition-colors">ダッシュボード</a>
-            <a href="/upload" class="text-primary-100 hover:text-white transition-colors">送信</a>
-            <a href="/receive" class="text-primary-100 hover:text-white transition-colors">受信</a>
-            <a href="/files" class="text-primary-100 hover:text-white transition-colors">管理</a>
+            <a href="/" class="text-primary-100 hover:text-white transition-colors">${get('nav.dashboard')}</a>
+            <a href="/upload" class="text-primary-100 hover:text-white transition-colors">${get('nav.upload')}</a>
+            <a href="/receive" class="text-primary-100 hover:text-white transition-colors">${get('nav.receive')}</a>
+            <a href="/files" class="text-primary-100 hover:text-white transition-colors">${get('nav.files')}</a>
           </nav>
           ` : ''}
         </div>
-        ${user ? `
         <div class="flex items-center space-x-4">
+          <!-- 言語切り替え -->
+          <a href="?lang=${otherLang}" class="text-sm text-primary-100 hover:text-white transition-colors">
+            ${otherLangName}
+          </a>
+          ${user ? `
           <span class="text-sm text-primary-100">${escapeHtml(user.name || user.email)}</span>
           <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
             <span class="text-white font-medium">${escapeHtml((user.name || user.email)[0].toUpperCase())}</span>
           </div>
+          ` : ''}
         </div>
-        ` : ''}
       </div>
     </div>
   </header>`;

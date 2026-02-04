@@ -193,9 +193,15 @@ export interface AuthUser {
 }
 
 /**
+ * 言語設定
+ */
+export type Language = 'ja' | 'en';
+
+/**
  * Honoコンテキスト用変数
  */
 export interface Variables {
   user: AuthUser;
   userId: number;
+  lang: Language;
 }
