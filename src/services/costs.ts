@@ -4,35 +4,41 @@
  */
 
 /**
- * Cloudflare料金体系（2024年時点）
+ * Cloudflare料金体系（2026年版）
  * https://developers.cloudflare.com/r2/pricing/
- * https://developers.cloudflare.com/d1/pricing/
+ * https://developers.cloudflare.com/d1/platform/pricing/
  * https://developers.cloudflare.com/workers/platform/pricing/
  */
 export const PRICING = {
   // R2ストレージ
   r2: {
-    storage: 0.015, // $0.015/GB/月
-    classA: 4.50 / 1_000_000, // $4.50/100万リクエスト（書き込み）
-    classB: 0.36 / 1_000_000, // $0.36/100万リクエスト（読み取り）
-    freeStorageGB: 10, // 無料枠: 10GB
+    storage: 0.015, // $0.015/GB-month（標準ストレージ）
+    storageInfrequent: 0.01, // $0.01/GB-month（低頻度アクセス）
+    classA: 4.50 / 1_000_000, // $4.50/100万リクエスト（PUT, POST, LIST等）
+    classB: 0.36 / 1_000_000, // $0.36/100万リクエスト（GET, HEAD等）
+    freeStorageGB: 10, // 無料枠: 10GB/月
     freeClassA: 1_000_000, // 無料枠: 100万リクエスト/月
     freeClassB: 10_000_000, // 無料枠: 1000万リクエスト/月
+    // エグレス（データ転送）: 無料
   },
   // D1データベース
   d1: {
-    rowsRead: 0.001, // $0.001/100万行読み取り → 実質無料に近い
+    rowsRead: 0.001 / 1_000_000, // $0.001/100万行読み取り
     rowsWritten: 1.00 / 1_000_000, // $1.00/100万行書き込み
-    storageGB: 0.75, // $0.75/GB/月
-    freeRowsRead: 25_000_000_000, // 無料枠: 250億行/月
-    freeRowsWritten: 50_000_000, // 無料枠: 5000万行/月
+    storageGB: 0.75, // $0.75/GB-month
+    freeRowsRead: 25_000_000_000, // 無料枠: 250億行/月（Paid）
+    freeRowsWritten: 50_000_000, // 無料枠: 5000万行/月（Paid）
     freeStorageGB: 5, // 無料枠: 5GB
+    // Free版: 500万行読み取り/日、10万行書き込み/日
   },
-  // Workers
+  // Workers（Paid Plan: $5/月〜）
   workers: {
-    requests: 0.30 / 1_000_000, // $0.30/100万リクエスト（Bundled）
-    cpuTime: 0.02 / 1_000_000, // $0.02/100万ms CPU時間
-    freeRequests: 100_000, // 無料枠: 10万リクエスト/日
+    baseFee: 5.00, // $5/月（Workers Paid Plan基本料金）
+    requests: 0.30 / 1_000_000, // $0.30/100万リクエスト
+    cpuTime: 0.02 / 1_000_000, // $0.02/100万CPU-ms
+    freeRequests: 10_000_000, // 無料枠: 1000万リクエスト/月（Paid）
+    freeCpuMs: 30_000_000, // 無料枠: 3000万CPU-ms/月（Paid）
+    // Free版: 10万リクエスト/日、10ms CPU時間/リクエスト
   },
 };
 
@@ -96,15 +102,16 @@ export function estimateCosts(usage: UsageStats): CostEstimate {
   const d1RowsReadCost = Math.max(0, usage.estimatedRowsRead - PRICING.d1.freeRowsRead) * PRICING.d1.rowsRead;
   const d1RowsWrittenCost = Math.max(0, usage.estimatedRowsWritten - PRICING.d1.freeRowsWritten) * PRICING.d1.rowsWritten;
 
-  // Workersコスト計算
+  // Workersコスト計算（Paid Plan想定）
   const totalRequests = usage.apiRequestsThisMonth;
-  const dailyRequests = totalRequests / 30;
-  const billableRequests = Math.max(0, dailyRequests - PRICING.workers.freeRequests) * 30;
+  const billableRequests = Math.max(0, totalRequests - PRICING.workers.freeRequests);
   const workersCost = billableRequests * PRICING.workers.requests;
+  // 基本料金は使用量がある場合のみ加算（実際には$5/月固定）
+  const workersBaseFee = totalRequests > 0 ? 0 : 0; // 基本料金は別途表示
 
   const r2Total = r2StorageCost + r2ClassACost + r2ClassBCost;
   const d1Total = d1StorageCost + d1RowsReadCost + d1RowsWrittenCost;
-  const workersTotal = workersCost;
+  const workersTotal = workersCost + workersBaseFee;
 
   return {
     r2: {

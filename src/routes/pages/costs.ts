@@ -102,7 +102,7 @@ costs.get('/', async (c) => {
       <!-- 料金表 -->
       <div class="bg-white rounded-lg shadow-sm border">
         <div class="px-6 py-4 border-b">
-          <h2 class="text-lg font-semibold text-gray-900">Cloudflare料金表（参考）</h2>
+          <h2 class="text-lg font-semibold text-gray-900">Cloudflare料金表（2026年版）</h2>
         </div>
         <div class="p-6">
           <div class="overflow-x-auto">
@@ -111,56 +111,85 @@ costs.get('/', async (c) => {
                 <tr class="border-b">
                   <th class="text-left py-2 font-medium text-gray-700">サービス</th>
                   <th class="text-left py-2 font-medium text-gray-700">項目</th>
-                  <th class="text-right py-2 font-medium text-gray-700">無料枠</th>
+                  <th class="text-right py-2 font-medium text-gray-700">無料枠（Paid）</th>
                   <th class="text-right py-2 font-medium text-gray-700">超過料金</th>
                 </tr>
               </thead>
               <tbody class="divide-y">
                 <tr>
-                  <td class="py-2 text-gray-900" rowspan="3">R2</td>
-                  <td class="py-2 text-gray-600">ストレージ</td>
+                  <td class="py-2 text-gray-900 font-medium" rowspan="4">R2</td>
+                  <td class="py-2 text-gray-600">ストレージ（標準）</td>
                   <td class="py-2 text-right text-gray-600">10 GB/月</td>
-                  <td class="py-2 text-right text-gray-900">$0.015/GB</td>
+                  <td class="py-2 text-right text-gray-900">$0.015/GB-month</td>
                 </tr>
                 <tr>
-                  <td class="py-2 text-gray-600">Class A操作</td>
+                  <td class="py-2 text-gray-600">ストレージ（低頻度）</td>
+                  <td class="py-2 text-right text-gray-600">-</td>
+                  <td class="py-2 text-right text-gray-900">$0.01/GB-month</td>
+                </tr>
+                <tr>
+                  <td class="py-2 text-gray-600">Class A操作（PUT等）</td>
                   <td class="py-2 text-right text-gray-600">100万/月</td>
                   <td class="py-2 text-right text-gray-900">$4.50/100万</td>
                 </tr>
                 <tr>
-                  <td class="py-2 text-gray-600">Class B操作</td>
+                  <td class="py-2 text-gray-600">Class B操作（GET等）</td>
                   <td class="py-2 text-right text-gray-600">1000万/月</td>
                   <td class="py-2 text-right text-gray-900">$0.36/100万</td>
                 </tr>
                 <tr>
-                  <td class="py-2 text-gray-900" rowspan="3">D1</td>
+                  <td class="py-2 text-gray-900 font-medium" rowspan="3">D1</td>
                   <td class="py-2 text-gray-600">ストレージ</td>
                   <td class="py-2 text-right text-gray-600">5 GB</td>
-                  <td class="py-2 text-right text-gray-900">$0.75/GB</td>
+                  <td class="py-2 text-right text-gray-900">$0.75/GB-month</td>
                 </tr>
                 <tr>
                   <td class="py-2 text-gray-600">行読み取り</td>
                   <td class="py-2 text-right text-gray-600">250億/月</td>
-                  <td class="py-2 text-right text-gray-900">$0.001/100万</td>
+                  <td class="py-2 text-right text-gray-900">$0.001/100万行</td>
                 </tr>
                 <tr>
                   <td class="py-2 text-gray-600">行書き込み</td>
                   <td class="py-2 text-right text-gray-600">5000万/月</td>
-                  <td class="py-2 text-right text-gray-900">$1.00/100万</td>
+                  <td class="py-2 text-right text-gray-900">$1.00/100万行</td>
                 </tr>
                 <tr>
-                  <td class="py-2 text-gray-900">Workers</td>
+                  <td class="py-2 text-gray-900 font-medium" rowspan="3">Workers</td>
+                  <td class="py-2 text-gray-600">基本料金</td>
+                  <td class="py-2 text-right text-gray-600">-</td>
+                  <td class="py-2 text-right text-gray-900">$5/月</td>
+                </tr>
+                <tr>
                   <td class="py-2 text-gray-600">リクエスト</td>
-                  <td class="py-2 text-right text-gray-600">10万/日</td>
+                  <td class="py-2 text-right text-gray-600">1000万/月</td>
                   <td class="py-2 text-right text-gray-900">$0.30/100万</td>
+                </tr>
+                <tr>
+                  <td class="py-2 text-gray-600">CPU時間</td>
+                  <td class="py-2 text-right text-gray-600">3000万ms/月</td>
+                  <td class="py-2 text-right text-gray-900">$0.02/100万ms</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <!-- 特記事項 -->
+          <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 class="font-medium text-gray-900 mb-2">特記事項</h4>
+            <ul class="text-xs text-gray-600 space-y-1">
+              <li>• <strong>R2エグレス無料</strong>: データ転送（出力）は完全無料</li>
+              <li>• <strong>D1スケールゼロ</strong>: クエリがなければ課金なし</li>
+              <li>• <strong>Workers Free版</strong>: 10万リクエスト/日、10ms CPU/リクエスト</li>
+              <li>• <strong>D1 Free版</strong>: 500万行読取/日、10万行書込/日</li>
+            </ul>
+          </div>
+
           <p class="mt-4 text-xs text-gray-500">
-            ※ 料金は2024年時点の情報です。最新の料金は
-            <a href="https://developers.cloudflare.com/r2/pricing/" target="_blank" class="text-primary-600 hover:underline">Cloudflare公式ドキュメント</a>
-            をご確認ください。
+            ※ 料金は2026年2月時点の情報です。最新の料金は
+            <a href="https://developers.cloudflare.com/r2/pricing/" target="_blank" class="text-primary-600 hover:underline">R2</a>、
+            <a href="https://developers.cloudflare.com/d1/platform/pricing/" target="_blank" class="text-primary-600 hover:underline">D1</a>、
+            <a href="https://developers.cloudflare.com/workers/platform/pricing/" target="_blank" class="text-primary-600 hover:underline">Workers</a>
+            の公式ドキュメントをご確認ください。
           </p>
         </div>
       </div>
