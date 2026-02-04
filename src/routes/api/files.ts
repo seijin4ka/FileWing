@@ -15,6 +15,7 @@ import {
   getFileById,
   softDeleteFile,
   getLinksByFile,
+  deleteLinksByFile,
 } from '../../services/d1';
 import { validateMimeType } from '../../utils/mime';
 
@@ -187,6 +188,9 @@ files.delete('/:id', async (c) => {
     if (file.user_id !== userId) {
       return c.json({ success: false, error: 'アクセス権限がありません' }, 403);
     }
+
+    // ファイルに紐づく全リンクを完全削除
+    await deleteLinksByFile(c.env.DB, fileId);
 
     // 論理削除
     const deleted = await softDeleteFile(c.env.DB, fileId, userId);

@@ -272,6 +272,7 @@ function renderHeader(user?: { email: string; name?: string } | null, lang: Lang
             <a href="/upload" class="text-primary-100 hover:text-white transition-colors">${get('nav.upload')}</a>
             <a href="/receive" class="text-primary-100 hover:text-white transition-colors">${get('nav.receive')}</a>
             <a href="/files" class="text-primary-100 hover:text-white transition-colors">${get('nav.files')}</a>
+            <a href="/links" class="text-primary-100 hover:text-white transition-colors">${get('nav.links')}</a>
             <a href="/costs" class="text-primary-100 hover:text-white transition-colors">${get('nav.costs')}</a>
           </nav>
           ` : ''}

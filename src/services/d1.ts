@@ -263,6 +263,27 @@ export async function getLinksByFile(
 }
 
 /**
+ * ユーザーの全ダウンロードリンクを取得（ファイル情報付き）
+ */
+export async function getLinksByUser(
+  db: D1Database,
+  userId: number
+): Promise<(DownloadLink & { file_name: string; file_size: number })[]> {
+  const result = await db
+    .prepare(
+      `SELECT dl.*, f.original_name as file_name, f.size as file_size
+       FROM download_links dl
+       JOIN files f ON dl.file_id = f.id
+       WHERE f.user_id = ? AND f.deleted_at IS NULL
+       ORDER BY dl.created_at DESC`
+    )
+    .bind(userId)
+    .all<DownloadLink & { file_name: string; file_size: number }>();
+
+  return result.results;
+}
+
+/**
  * リンクIDでダウンロードリンクを取得
  */
 export async function getLinkById(
@@ -296,6 +317,41 @@ export async function disableLink(
     .run();
 
   return result.meta.changes > 0;
+}
+
+/**
+ * ファイルに紐づく全リンクを完全削除
+ * 関連する送信先履歴・ダウンロード履歴も削除
+ */
+export async function deleteLinksByFile(
+  db: D1Database,
+  fileId: number
+): Promise<number> {
+  // ファイルに紐づくリンクIDを取得
+  const links = await db
+    .prepare('SELECT id FROM download_links WHERE file_id = ?')
+    .bind(fileId)
+    .all<{ id: number }>();
+
+  if (links.results.length === 0) {
+    return 0;
+  }
+
+  const linkIds = links.results.map((l) => l.id);
+
+  // 関連データを削除（バッチ処理）
+  const deleteRecipients = db.prepare('DELETE FROM link_recipients WHERE link_id = ?');
+  const deleteLogs = db.prepare('DELETE FROM download_logs WHERE link_id = ?');
+  const deleteLink = db.prepare('DELETE FROM download_links WHERE id = ?');
+
+  // 各リンクの関連データを削除
+  await db.batch([
+    ...linkIds.map((id) => deleteRecipients.bind(id)),
+    ...linkIds.map((id) => deleteLogs.bind(id)),
+    ...linkIds.map((id) => deleteLink.bind(id)),
+  ]);
+
+  return linkIds.length;
 }
 
 /**
@@ -894,6 +950,39 @@ export async function markFileDeleted(
     )
     .bind(fileId)
     .run();
+}
+
+/**
+ * 孤児リンクをクリーンアップ（ファイルが削除されているリンクを完全削除）
+ */
+export async function cleanupOrphanLinks(db: D1Database): Promise<number> {
+  // 削除済みファイルに紐づくリンクIDを取得
+  const orphanLinks = await db
+    .prepare(
+      `SELECT dl.id FROM download_links dl
+       JOIN files f ON dl.file_id = f.id
+       WHERE f.deleted_at IS NOT NULL`
+    )
+    .all<{ id: number }>();
+
+  if (orphanLinks.results.length === 0) {
+    return 0;
+  }
+
+  const linkIds = orphanLinks.results.map((l) => l.id);
+
+  // 関連データを削除（バッチ処理）
+  const deleteRecipients = db.prepare('DELETE FROM link_recipients WHERE link_id = ?');
+  const deleteLogs = db.prepare('DELETE FROM download_logs WHERE link_id = ?');
+  const deleteLink = db.prepare('DELETE FROM download_links WHERE id = ?');
+
+  await db.batch([
+    ...linkIds.map((id) => deleteRecipients.bind(id)),
+    ...linkIds.map((id) => deleteLogs.bind(id)),
+    ...linkIds.map((id) => deleteLink.bind(id)),
+  ]);
+
+  return linkIds.length;
 }
 
 /**

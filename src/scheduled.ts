@@ -9,6 +9,7 @@ import {
   markFileDeleted,
   getReceivedFilesToCleanup,
   deleteReceivedFile,
+  cleanupOrphanLinks,
 } from './services/d1';
 import { deleteFile } from './services/r2';
 import { cleanupOldAttempts } from './services/ratelimit';
@@ -58,12 +59,16 @@ export async function handleScheduled(
       }
     }
 
+    // 孤児リンクのクリーンアップ（削除済みファイルに紐づくリンク）
+    const cleanedOrphanLinks = await cleanupOrphanLinks(env.DB);
+    console.log(`孤児リンク削除: ${cleanedOrphanLinks}件`);
+
     // レート制限の古いレコードを削除
     const cleanedAttempts = await cleanupOldAttempts(env.DB);
     console.log(`レート制限レコード削除: ${cleanedAttempts}件`);
 
     console.log(
-      `クリーンアップ完了: 送信ファイル ${deletedFiles}件, 受信ファイル ${deletedReceivedFiles}件 削除`
+      `クリーンアップ完了: 送信ファイル ${deletedFiles}件, 受信ファイル ${deletedReceivedFiles}件, 孤児リンク ${cleanedOrphanLinks}件 削除`
     );
   } catch (error) {
     console.error('クリーンアップエラー:', error);

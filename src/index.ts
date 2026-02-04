@@ -28,6 +28,7 @@ import download from './routes/pages/download';
 import receive from './routes/pages/receive';
 import receiveGuest from './routes/pages/receive-guest';
 import costs from './routes/pages/costs';
+import links from './routes/pages/links';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -88,6 +89,7 @@ app.route('/api', exportApi);
 app.route('/', dashboard);
 app.route('/upload', upload);
 app.route('/files', files);
+app.route('/links', links);
 app.route('/receive', receive);
 app.route('/costs', costs);
 
