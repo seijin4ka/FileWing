@@ -15,6 +15,7 @@
 - **認証**: Cloudflare Access (JWT)
 - **メール**: Resend API
 - **UI**: Tailwind CSS (CDN)
+- **多言語対応**: 日本語/英語
 
 ## 開発コマンド
 
@@ -40,26 +41,63 @@ npm run deploy
 ```
 src/
 ├── index.ts              # エントリーポイント、ルーティング設定
+├── scheduled.ts          # 定期クリーンアップジョブ（Cron Trigger）
 ├── types/index.ts        # 型定義（Env, Models, API types）
-├── middleware/auth.ts    # Cloudflare Access認証
+├── middleware/
+│   ├── auth.ts           # Cloudflare Access認証
+│   └── language.ts       # 言語検出ミドルウェア
+├── i18n/
+│   ├── index.ts          # 多言語ユーティリティ
+│   └── translations.ts   # 日本語/英語翻訳定義
 ├── services/
-│   ├── r2.ts            # R2ストレージ操作
-│   ├── d1.ts            # D1データベース操作
-│   └── email.ts         # Resendメール送信
+│   ├── r2.ts             # R2ストレージ操作
+│   ├── d1.ts             # D1データベース操作
+│   └── email.ts          # Resendメール送信
 ├── routes/
-│   ├── api/             # REST API
-│   │   ├── files.ts     # POST/GET/DELETE /api/files
-│   │   ├── links.ts     # POST /api/files/:id/links, DELETE /api/links/:id
-│   │   └── email.ts     # POST /api/links/:id/send
-│   └── pages/           # HTMLページ（SSR）
-│       ├── dashboard.ts # GET /
-│       ├── upload.ts    # GET /upload
-│       ├── files.ts     # GET /files, GET /files/:id
-│       └── download.ts  # GET /d/:token（公開）
+│   ├── api/
+│   │   ├── files.ts      # POST/GET/DELETE /api/files
+│   │   ├── links.ts      # POST /api/files/:id/links, DELETE /api/links/:id
+│   │   ├── email.ts      # POST /api/links/:id/send
+│   │   ├── receive.ts    # 受信リンク管理API
+│   │   └── export.ts     # CSVエクスポートAPI
+│   └── pages/
+│       ├── dashboard.ts  # GET /
+│       ├── upload.ts     # GET /upload
+│       ├── files.ts      # GET /files, GET /files/:id
+│       ├── download.ts   # GET /d/:token（公開）
+│       ├── receive.ts    # GET /receive（受信リンク管理）
+│       └── receive-guest.ts  # GET /r/:token（ゲストアップロード・公開）
 └── templates/
-    ├── layout.ts        # 共通HTMLレイアウト
-    └── components/      # UIコンポーネント
+    ├── layout.ts         # 共通HTMLレイアウト
+    └── components/       # UIコンポーネント
 ```
+
+## 主要機能
+
+### 送信機能
+- ファイルアップロード（ドラッグ&ドロップ対応）
+- ダウンロードリンク生成（有効期限1-10日）
+- オプション: パスワード保護、ダウンロード回数制限
+- メール通知
+
+### 受信機能
+- 受信リンク発行（ゲストからファイルを受け取る）
+- オプション: パスワード保護、最大ファイル数/サイズ制限
+- 受信ファイル一覧・ダウンロード
+
+### CSVエクスポート
+- ファイル一覧エクスポート (`/api/export/files`)
+- ダウンロード履歴エクスポート (`/api/export/downloads`)
+- 受信ファイル履歴エクスポート (`/api/export/received`)
+
+### 言語切り替え
+- 日本語/英語対応
+- Cookie・クエリパラメータ・Accept-Languageヘッダーで自動検出
+- `?lang=en` または `?lang=ja` で切り替え
+
+### R2自動クリーンアップ
+- ダウンロード回数制限到達時: 即座にR2から削除
+- 定期クリーンアップ: Cron Trigger（毎日3:00 JST）で期限切れファイルを一括削除
 
 ## 重要なアーキテクチャ決定
 
@@ -69,12 +107,14 @@ src/
 
 ### ファイル保存
 - R2キー形式: `{userId}/{timestamp}-{uuid}/{sanitizedFilename}`
-- 論理削除（`deleted_at`）を使用、R2からの物理削除はオプション
+- 論理削除（`deleted_at`）を使用
+- 有効リンクがなくなったファイルは自動削除
 
 ### ダウンロードリンク
 - トークン: 64文字の暗号学的に安全なランダム文字列
 - 有効期限: 1-10日（サーバーサイドで厳密チェック）
 - オプション: パスワード保護、最大ダウンロード回数
+- 回数制限到達時は自動無効化
 
 ### UIレンダリング
 - サーバーサイドHTML生成（テンプレート文字列）
@@ -83,12 +123,14 @@ src/
 
 ## データベーススキーマ
 
-5つのテーブル:
+7つのテーブル:
 1. `users` - Cloudflare Accessユーザー
 2. `files` - アップロードファイルメタデータ
-3. `download_links` - ダウンロードリンク（トークン、期限、パスワード）
+3. `download_links` - ダウンロードリンク（トークン、期限、パスワード、回数制限）
 4. `link_recipients` - メール送信先記録
 5. `download_logs` - ダウンロード履歴（IP、UA、日時）
+6. `receive_links` - 受信リンク（ゲストアップロード用）
+7. `received_files` - 受信ファイル
 
 マイグレーションは `migrations/` ディレクトリに配置。
 
@@ -125,3 +167,15 @@ src/
 | `RESEND_API_KEY` | Resend APIキー | `wrangler secret put` |
 | `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 | wrangler.toml |
 | `ACCESS_AUD` | Cloudflare Access AUD | wrangler.toml |
+
+## Cron Trigger設定
+
+```toml
+# wrangler.toml
+[triggers]
+crons = ["0 18 * * *"]  # 毎日18:00 UTC = 3:00 JST
+```
+
+定期クリーンアップで以下を実行:
+- 有効リンクがないファイルをR2から削除
+- ダウンロード済みの受信ファイルを削除（リンク期限切れ後）
