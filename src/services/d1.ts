@@ -779,6 +779,55 @@ export async function markReceivedFileDownloaded(
     .run();
 }
 
+/**
+ * 受信ファイルを削除
+ */
+export async function deleteReceivedFile(
+  db: D1Database,
+  fileId: number
+): Promise<boolean> {
+  const result = await db
+    .prepare('DELETE FROM received_files WHERE id = ?')
+    .bind(fileId)
+    .run();
+
+  return result.meta.changes > 0;
+}
+
+/**
+ * 受信リンクとその全ファイルを削除
+ * R2キーのリストを返す（R2からの削除は呼び出し元で行う）
+ */
+export async function deleteReceiveLinkWithFiles(
+  db: D1Database,
+  linkId: number,
+  userId: number
+): Promise<{ deleted: boolean; r2Keys: string[] }> {
+  // 所有者確認
+  const link = await getReceiveLinkById(db, linkId);
+  if (!link || link.user_id !== userId) {
+    return { deleted: false, r2Keys: [] };
+  }
+
+  // 受信ファイルのR2キーを取得
+  const files = await getReceivedFilesByLink(db, linkId);
+  const r2Keys = files.map((f) => f.r2_key);
+
+  // 受信ファイルを削除
+  await db
+    .prepare('DELETE FROM received_files WHERE receive_link_id = ?')
+    .bind(linkId)
+    .run();
+
+  // 受信リンクを削除
+  const result = await db
+    .prepare('DELETE FROM receive_links WHERE id = ?')
+    .bind(linkId)
+    .run();
+
+  return { deleted: result.meta.changes > 0, r2Keys };
+}
+
 // =====================================================
 // クリーンアップ関連
 // =====================================================
@@ -865,19 +914,6 @@ export async function getReceivedFilesToCleanup(
     .all<{ id: number; r2_key: string }>();
 
   return result.results;
-}
-
-/**
- * 受信ファイルを削除
- */
-export async function deleteReceivedFile(
-  db: D1Database,
-  fileId: number
-): Promise<void> {
-  await db
-    .prepare('DELETE FROM received_files WHERE id = ?')
-    .bind(fileId)
-    .run();
 }
 
 // =====================================================

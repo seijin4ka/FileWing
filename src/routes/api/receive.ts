@@ -14,8 +14,10 @@ import {
   getReceivedFileCount,
   getReceivedFileById,
   markReceivedFileDownloaded,
+  deleteReceivedFile,
+  deleteReceiveLinkWithFiles,
 } from '../../services/d1';
-import { getFile } from '../../services/r2';
+import { getFile, deleteFile } from '../../services/r2';
 import { hashPassword } from '../../utils/crypto';
 
 const receive = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -233,6 +235,89 @@ receive.get('/received-files/:id/download', async (c) => {
     console.error('ファイルダウンロードエラー:', error);
     return c.json(
       { success: false, error: 'ダウンロードに失敗しました' },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/received-files/:id
+ * 受信ファイルを削除
+ */
+receive.delete('/received-files/:id', async (c) => {
+  const userId = c.get('userId');
+  const fileId = parseInt(c.req.param('id'), 10);
+
+  if (isNaN(fileId)) {
+    return c.json({ success: false, error: '無効なファイルIDです' }, 400);
+  }
+
+  try {
+    const file = await getReceivedFileById(c.env.DB, fileId);
+
+    if (!file) {
+      return c.json({ success: false, error: 'ファイルが見つかりません' }, 404);
+    }
+
+    // リンクの所有者チェック
+    const link = await getReceiveLinkById(c.env.DB, file.receive_link_id);
+    if (!link || link.user_id !== userId) {
+      return c.json({ success: false, error: 'アクセス権限がありません' }, 403);
+    }
+
+    // R2からファイルを削除
+    await deleteFile(c.env.R2_BUCKET, file.r2_key);
+
+    // DBから削除
+    await deleteReceivedFile(c.env.DB, fileId);
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('ファイル削除エラー:', error);
+    return c.json(
+      { success: false, error: 'ファイルの削除に失敗しました' },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/receive-links/:id/full
+ * 受信リンクとすべてのファイルを完全に削除
+ */
+receive.delete('/receive-links/:id/full', async (c) => {
+  const userId = c.get('userId');
+  const linkId = parseInt(c.req.param('id'), 10);
+
+  if (isNaN(linkId)) {
+    return c.json({ success: false, error: '無効なリンクIDです' }, 400);
+  }
+
+  try {
+    // DBから削除（R2キーのリストを取得）
+    const { deleted, r2Keys } = await deleteReceiveLinkWithFiles(
+      c.env.DB,
+      linkId,
+      userId
+    );
+
+    if (!deleted) {
+      return c.json(
+        { success: false, error: 'リンクが見つからないか、アクセス権限がありません' },
+        404
+      );
+    }
+
+    // R2からファイルを削除
+    for (const r2Key of r2Keys) {
+      await deleteFile(c.env.R2_BUCKET, r2Key);
+    }
+
+    return c.json({ success: true, deletedFiles: r2Keys.length });
+  } catch (error) {
+    console.error('受信リンク削除エラー:', error);
+    return c.json(
+      { success: false, error: '受信リンクの削除に失敗しました' },
       500
     );
   }

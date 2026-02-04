@@ -194,6 +194,26 @@ receive.get('/', async (c) => {
           showToast('エラーが発生しました', 'error');
         }
       }
+
+      async function deleteLink(linkId) {
+        if (!confirm('この受信リンクとすべてのファイルを完全に削除しますか？この操作は取り消せません。')) {
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/receive-links/' + linkId + '/full', { method: 'DELETE' });
+          const result = await res.json();
+
+          if (result.success) {
+            showToast('受信リンクを削除しました', 'success');
+            location.reload();
+          } else {
+            showToast(result.error || '削除に失敗しました', 'error');
+          }
+        } catch (error) {
+          showToast('エラーが発生しました', 'error');
+        }
+      }
     </script>
   `;
 
@@ -262,11 +282,17 @@ receive.get('/:id', async (c) => {
             </div>
             ` : ''}
           </div>
-          ${isActive ? `
-          <button type="button" onclick="disableLink(${link.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
-            無効化
-          </button>
-          ` : ''}
+          <div class="flex flex-col space-y-2">
+            ${isActive ? `
+            <button type="button" onclick="disableLink(${link.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
+              無効化
+            </button>
+            ` : `
+            <button type="button" onclick="deleteLink(${link.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
+              完全に削除
+            </button>
+            `}
+          </div>
         </div>
       </div>
 
@@ -322,10 +348,13 @@ receive.get('/:id', async (c) => {
                         : badge({ text: '未ダウンロード', variant: 'warning' })
                       }
                     </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-6 py-4 text-right space-x-3">
                       <a href="/api/received-files/${file.id}/download" class="text-primary-500 hover:text-primary-600 font-medium text-sm">
                         ダウンロード
                       </a>
+                      <button type="button" onclick="deleteFile(${file.id})" class="text-red-500 hover:text-red-600 font-medium text-sm">
+                        削除
+                      </button>
                     </td>
                   </tr>
                 `).join('')}
@@ -358,6 +387,46 @@ receive.get('/:id', async (c) => {
             location.reload();
           } else {
             showToast(result.error || '無効化に失敗しました', 'error');
+          }
+        } catch (error) {
+          showToast('エラーが発生しました', 'error');
+        }
+      }
+
+      async function deleteFile(fileId) {
+        if (!confirm('このファイルを削除しますか？この操作は取り消せません。')) {
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/received-files/' + fileId, { method: 'DELETE' });
+          const result = await res.json();
+
+          if (result.success) {
+            showToast('ファイルを削除しました', 'success');
+            location.reload();
+          } else {
+            showToast(result.error || '削除に失敗しました', 'error');
+          }
+        } catch (error) {
+          showToast('エラーが発生しました', 'error');
+        }
+      }
+
+      async function deleteLink(linkId) {
+        if (!confirm('この受信リンクとすべてのファイルを完全に削除しますか？この操作は取り消せません。')) {
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/receive-links/' + linkId + '/full', { method: 'DELETE' });
+          const result = await res.json();
+
+          if (result.success) {
+            showToast('受信リンクを削除しました', 'success');
+            location.href = '/receive';
+          } else {
+            showToast(result.error || '削除に失敗しました', 'error');
           }
         } catch (error) {
           showToast('エラーが発生しました', 'error');
@@ -405,7 +474,11 @@ function renderLinkItem(
             <button type="button" onclick="disableLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="無効化">
               ${icons.trash}
             </button>
-          ` : ''}
+          ` : `
+            <button type="button" onclick="deleteLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="完全に削除">
+              ${icons.trash}
+            </button>
+          `}
         </div>
       </div>
     </div>
