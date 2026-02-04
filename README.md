@@ -5,12 +5,14 @@
 ## 特徴
 
 - **セキュアなファイル共有**: パスワード保護、有効期限付きリンク、ダウンロード回数制限
+- **ファイルサイズ無制限**: R2ストレージによる大容量ファイル対応
 - **ファイル受信機能**: ゲストからファイルを受け取るリンクを発行
 - **ダウンロード追跡**: IP、日時、ユーザーエージェントを記録
 - **CSVエクスポート**: 送受信履歴をCSV形式でエクスポート
 - **多言語対応**: 日本語/英語切り替え
 - **メール通知**: ダウンロードリンクをメールで送信（Cloudflare Email Sending）
 - **自動クリーンアップ**: 期限切れファイルをR2から自動削除
+- **コスト見積もり**: Cloudflareサービス使用量・予想コストを表示
 - **サーバーレス**: Cloudflare Workersで高速・低コスト運用
 - **認証連携**: Cloudflare Access（Google/Microsoft/SAML対応）
 
@@ -40,11 +42,14 @@
 # 依存関係インストール
 npm install
 
+# wrangler.local.tomlを作成（下記「本番デプロイ」セクション参照）
+# account_id と database_id を設定
+
 # ローカルDBマイグレーション
-npm run db:migrate
+wrangler d1 migrations apply filewing-db --local -c wrangler.local.toml
 
 # 開発サーバー起動
-npm run dev
+wrangler dev -c wrangler.local.toml
 ```
 
 http://localhost:8787 でアクセス。開発環境では認証がスキップされ、テストユーザーとして自動ログインします。
@@ -61,12 +66,53 @@ wrangler d1 create filewing-db
 wrangler r2 bucket create filewing-bucket
 ```
 
-#### 2. wrangler.toml更新
+#### 2. ローカル設定ファイル作成
+
+`wrangler.local.toml` を作成し、実際のIDを設定（このファイルはgitignored）:
 
 ```toml
+name = "filewing"
+main = "src/index.ts"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+account_id = "your-account-id"
+
+[vars]
+SKIP_AUTH = "true"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "filewing-bucket"
+
 [[d1_databases]]
-database_id = "実際のデータベースID"
+binding = "DB"
+database_name = "filewing-db"
+database_id = "your-database-id"
+migrations_dir = "migrations"
+
+[[send_email]]
+name = "EMAIL"
+
+[triggers]
+crons = ["0 18 * * *"]
+
+[env.production]
+vars = { SKIP_AUTH = "false" }
+
+[[env.production.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "filewing-bucket"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "filewing-db"
+database_id = "your-database-id"
+
+[[env.production.send_email]]
+name = "EMAIL"
 ```
+
+開発時は `wrangler dev -c wrangler.local.toml` で起動します。
 
 #### 3. Email Routing設定
 
@@ -77,13 +123,13 @@ Cloudflareダッシュボードで:
 #### 4. DBマイグレーション
 
 ```bash
-npm run db:migrate:prod
+wrangler d1 migrations apply filewing-db -c wrangler.local.toml --env production --remote
 ```
 
 #### 5. デプロイ
 
 ```bash
-npm run deploy
+wrangler deploy -c wrangler.local.toml --env production
 ```
 
 #### 6. Cloudflare Access設定
@@ -183,7 +229,7 @@ Cloudflareダッシュボードで:
 ## プロジェクト構造
 
 ```
-filewing/
+FileWing/
 ├── src/
 │   ├── index.ts              # エントリーポイント
 │   ├── scheduled.ts          # 定期クリーンアップ
@@ -197,8 +243,13 @@ filewing/
 │   │   └── pages/            # HTMLページ
 │   └── templates/            # UIテンプレート
 ├── migrations/               # D1マイグレーション
-├── wrangler.toml             # Cloudflare Workers設定
-└── package.json
+├── wrangler.toml             # Cloudflare Workers設定（テンプレート）
+├── wrangler.local.toml       # ローカル設定（gitignored、実際のIDを記載）
+├── .gitignore
+├── package.json
+├── tsconfig.json
+├── CLAUDE.md                 # Claude Code用ガイダンス
+└── README.md
 ```
 
 ## セキュリティ

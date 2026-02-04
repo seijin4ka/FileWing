@@ -1,13 +1,13 @@
 {
-  "name": "cloudflare-worker-uploader",
+  "name": "filewing",
   "version": "1.0.0",
-  "description": "法人向けファイルアップローダー - 脱PPAP対応",
+  "description": "FileWing - 脱PPAP対応のセキュアファイル共有システム",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:migrate": "wrangler d1 migrations apply file-uploader-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply file-uploader-db",
+    "deploy": "wrangler deploy --env production",
+    "db:migrate": "wrangler d1 migrations apply filewing-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply filewing-db --env production",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

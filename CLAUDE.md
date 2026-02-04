@@ -23,18 +23,21 @@
 # 依存関係インストール
 npm install
 
-# ローカルDBマイグレーション
-npm run db:migrate
+# ローカルDBマイグレーション（wrangler.local.toml使用時）
+wrangler d1 migrations apply filewing-db --local -c wrangler.local.toml
 
 # 開発サーバー起動（http://localhost:8787）
-npm run dev
+wrangler dev -c wrangler.local.toml
 
 # 型チェック
 npm run typecheck
 
 # 本番デプロイ
-npm run deploy
+wrangler deploy -c wrangler.local.toml --env production
 ```
+
+※ `npm run dev` / `npm run deploy` は wrangler.toml（テンプレート）を使用するため、
+  実際の開発・デプロイには `-c wrangler.local.toml` オプションを付けて直接実行してください。
 
 ## プロジェクト構造
 
@@ -81,15 +84,16 @@ src/
 ## 主要機能
 
 ### 送信機能
-- ファイルアップロード（ドラッグ&ドロップ対応、容量無制限）
+- ファイルアップロード（ドラッグ&ドロップ対応、**ファイルサイズ無制限**）
 - ダウンロードリンク生成（有効期限1-10日）
 - オプション: パスワード保護、ダウンロード回数制限
-- メール通知
+- メール通知（Cloudflare Email Sending）
 
 ### 受信機能
 - 受信リンク発行（ゲストからファイルを受け取る）
-- オプション: パスワード保護、最大ファイル数/サイズ制限
-- 受信ファイル一覧・ダウンロード・削除
+- オプション: パスワード保護、最大ファイル数制限
+- 受信ファイル一覧・ダウンロード・個別削除
+- 受信リンクの完全削除（ファイルも一括削除）
 
 ### CSVエクスポート
 - ファイル一覧エクスポート (`/api/export/files`)
@@ -166,11 +170,15 @@ src/
 **重要: 以下のルールは永続的に適用されます**
 
 - コミットメッセージに修正内容・開発内容を詳細に記載する
-- **コミットメッセージにClaude/Co-Authored-Byの署名は記載しない**
 - **コミットメッセージ・ドキュメントに他社製品名を記載しない**
   - Cloudflare製品名（Workers, R2, D1, Access等）は記載OK
 - 機能の修正や追加毎に頻繁にコミットする
 - コミット前にこのルールが適用されているか必ず確認する
+
+## GitHubリポジトリ
+
+- リポジトリ: `seijin4ka/FileWing`
+- Issues/PRは `gh` コマンドで管理
 
 ## ローカルデータ保存場所
 
@@ -185,6 +193,14 @@ src/
 | `SKIP_AUTH` | 認証スキップ（開発用） | wrangler.toml |
 | `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 | wrangler.toml |
 | `ACCESS_AUD` | Cloudflare Access AUD | wrangler.toml |
+
+## wrangler設定ファイル
+
+- **wrangler.toml**: テンプレート（機密情報なし、gitにコミット）
+- **wrangler.local.toml**: 実際のaccount_id/database_id（gitignored）
+
+開発時は `wrangler dev -c wrangler.local.toml` で起動。
+本番デプロイは `wrangler deploy -c wrangler.local.toml --env production`。
 
 ## Email Sending設定
 
