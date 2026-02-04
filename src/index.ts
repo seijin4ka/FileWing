@@ -16,6 +16,7 @@ import filesApi from './routes/api/files';
 import linksApi from './routes/api/links';
 import emailApi from './routes/api/email';
 import receiveApi from './routes/api/receive';
+import exportApi from './routes/api/export';
 
 // ページルート
 import dashboard from './routes/pages/dashboard';
@@ -75,6 +76,7 @@ app.route('/api/files', filesApi);
 app.route('/api', linksApi);
 app.route('/api', emailApi);
 app.route('/api', receiveApi);
+app.route('/api', exportApi);
 
 // ページルート
 app.route('/', dashboard);
