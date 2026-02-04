@@ -11,7 +11,7 @@ import {
   getReceivedFileCount,
   createReceivedFile,
 } from '../../services/d1';
-import { uploadFile, guessMimeType } from '../../services/r2';
+import { uploadFile, guessMimeType, sanitizeFilename } from '../../services/r2';
 
 const receiveGuest = new Hono<{ Bindings: Env }>();
 
@@ -384,7 +384,9 @@ receiveGuest.post('/:token/upload', async (c) => {
     const mimeType = file.type || guessMimeType(file.name);
 
     // R2キーを生成（受信ファイル用のプレフィックス）
-    const r2Key = `received/${link.id}/${Date.now()}-${crypto.randomUUID()}/${file.name}`;
+    // ファイル名をサニタイズしてパストラバーサルを防止
+    const sanitizedName = sanitizeFilename(file.name);
+    const r2Key = `received/${link.id}/${Date.now()}-${crypto.randomUUID()}/${sanitizedName}`;
 
     // R2にアップロード
     const arrayBuffer = await file.arrayBuffer();
