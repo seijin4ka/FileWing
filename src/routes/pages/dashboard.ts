@@ -259,7 +259,7 @@ function renderActivityItem(
           ${activity.details ? `<p class="text-xs text-gray-500">IP: ${escapeHtml(activity.details)}</p>` : ''}
         </div>
       </div>
-      <time class="text-sm text-gray-500 local-time" datetime="${activity.created_at}" title="${formatRelativeTime(activity.created_at)}"></time>
+      <time class="text-sm text-gray-500 local-time" datetime="${toISOString(activity.created_at)}" title="${formatRelativeTime(activity.created_at)}"></time>
     </div>
   `;
 }
@@ -274,6 +274,14 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * DB日時文字列をISO 8601形式（UTC）に変換
+ * "2026-02-04 03:03:09" -> "2026-02-04T03:03:09Z"
+ */
+function toISOString(dbDateTime: string): string {
+  return dbDateTime.replace(' ', 'T') + 'Z';
 }
 
 export default dashboard;
