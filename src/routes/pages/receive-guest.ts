@@ -4,7 +4,7 @@
  */
 
 import { Hono } from 'hono';
-import type { Env } from '../../types';
+import type { Env, Variables } from '../../types';
 import { layout, localDateTime, escapeHtml } from '../../templates/layout';
 import {
   getValidReceiveLinkByToken,
@@ -13,8 +13,9 @@ import {
 } from '../../services/d1';
 import { uploadFile, sanitizeFilename } from '../../services/r2';
 import { validateMimeType } from '../../utils/mime';
+import { createTranslator } from '../../i18n';
 
-const receiveGuest = new Hono<{ Bindings: Env }>();
+const receiveGuest = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
  * GET /r/:token
@@ -22,18 +23,22 @@ const receiveGuest = new Hono<{ Bindings: Env }>();
  */
 receiveGuest.get('/:token', async (c) => {
   const token = c.req.param('token');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // リンク情報を取得
   const link = await getValidReceiveLinkByToken(c.env.DB, token);
 
   if (!link) {
+    const errorTitle = lang === 'ja' ? 'リンクが無効です' : 'Invalid Link';
+    const errorMessage = lang === 'ja' ? 'このリンクは無効か期限切れです' : 'This link is invalid or expired';
+    const errorReasons = lang === 'ja'
+      ? ['リンクの有効期限が切れている可能性があります', 'リンクが無効化されている可能性があります']
+      : ['The link may have expired', 'The link may have been disabled'];
     return c.html(
       layout(
-        { title: 'リンクが無効です', hideHeader: true },
-        renderErrorPage('このリンクは無効か期限切れです', [
-          'リンクの有効期限が切れている可能性があります',
-          'リンクが無効化されている可能性があります',
-        ])
+        { title: errorTitle, hideHeader: true, lang },
+        renderErrorPage(errorMessage, errorReasons)
       )
     );
   }
@@ -338,7 +343,7 @@ receiveGuest.get('/:token', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: 'ファイル送信', hideHeader: true, bodyClass: 'bg-gray-100' }, content));
+  return c.html(layout({ title: get('receiveGuest.title'), hideHeader: true, bodyClass: 'bg-gray-100', lang }, content));
 });
 
 /**

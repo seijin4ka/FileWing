@@ -14,6 +14,7 @@ import {
   getFileById,
   getLinksByFile,
 } from '../../services/d1';
+import { createTranslator } from '../../i18n';
 
 const files = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -24,6 +25,8 @@ const files = new Hono<{ Bindings: Env; Variables: Variables }>();
 files.get('/', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // ファイル一覧を取得
   const fileList = await getFilesByUser(c.env.DB, userId);
@@ -40,15 +43,31 @@ files.get('/', async (c) => {
     })
   );
 
+  const fileCountText = lang === 'ja' ? `${fileList.length} 件のファイル` : `${fileList.length} files`;
+  const noFilesDesc = lang === 'ja' ? '最初のファイルをアップロードしましょう' : 'Upload your first file';
+  const activeText = lang === 'ja' ? '有効' : 'active';
+  const noneText = lang === 'ja' ? 'なし' : 'none';
+  const timesText = lang === 'ja' ? '回' : '';
+  const detailsText = lang === 'ja' ? '詳細' : 'Details';
+  const linksText = lang === 'ja' ? 'リンク' : 'Links';
+  const downloadsText = lang === 'ja' ? 'ダウンロード' : 'Downloads';
+  const createdText = lang === 'ja' ? '作成日' : 'Created';
+  const deleteConfirmText = lang === 'ja'
+    ? '「\' + fileName + \'」を削除してもよろしいですか？\\n\\nこの操作は取り消せません。関連するダウンロードリンクも無効になります。'
+    : 'Delete "\' + fileName + \'"?\\n\\nThis action cannot be undone. Related download links will be disabled.';
+  const deleteSuccessText = lang === 'ja' ? 'ファイルを削除しました' : 'File deleted';
+  const deleteErrorText = lang === 'ja' ? '削除に失敗しました' : 'Delete failed';
+  const errorText = lang === 'ja' ? 'エラーが発生しました' : 'An error occurred';
+
   const content = `
     <div class="space-y-6">
       <!-- ページヘッダー -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">ファイル一覧</h1>
-          <p class="text-gray-600">${fileList.length} 件のファイル</p>
+          <h1 class="text-2xl font-bold text-gray-900">${get('files.title')}</h1>
+          <p class="text-gray-600">${fileCountText}</p>
         </div>
-        ${linkButton({ text: 'アップロード', href: '/upload', variant: 'primary', icon: icons.upload })}
+        ${linkButton({ text: get('common.upload'), href: '/upload', variant: 'primary', icon: icons.upload })}
       </div>
 
       <!-- ファイル一覧 -->
@@ -58,10 +77,10 @@ files.get('/', async (c) => {
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
             </svg>
-            <h3 class="mt-4 text-lg font-medium text-gray-900">ファイルがありません</h3>
-            <p class="mt-2 text-gray-500">最初のファイルをアップロードしましょう</p>
+            <h3 class="mt-4 text-lg font-medium text-gray-900">${get('files.noFiles')}</h3>
+            <p class="mt-2 text-gray-500">${noFilesDesc}</p>
             <div class="mt-6">
-              ${linkButton({ text: 'ファイルをアップロード', href: '/upload', variant: 'primary' })}
+              ${linkButton({ text: get('common.upload'), href: '/upload', variant: 'primary' })}
             </div>
           </div>
         ` : `
@@ -69,12 +88,12 @@ files.get('/', async (c) => {
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ファイル</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">サイズ</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">リンク</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ダウンロード</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">作成日</th>
-                  <th scope="col" class="relative px-6 py-3"><span class="sr-only">操作</span></th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${get('files.fileName')}</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${get('files.size')}</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${linksText}</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${downloadsText}</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${createdText}</th>
+                  <th scope="col" class="relative px-6 py-3"><span class="sr-only">${get('files.actions')}</span></th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
@@ -96,20 +115,20 @@ files.get('/', async (c) => {
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                       ${file.activeLinks > 0
-                        ? badge({ text: `${file.activeLinks} 有効`, variant: 'success' })
-                        : badge({ text: 'なし', variant: 'default' })
+                        ? badge({ text: `${file.activeLinks} ${activeText}`, variant: 'success' })
+                        : badge({ text: noneText, variant: 'default' })
                       }
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${file.totalDownloads} 回
+                      ${file.totalDownloads}${timesText ? ` ${timesText}` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${localDateTime(file.created_at)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div class="flex items-center justify-end space-x-2">
-                        <a href="/files/${file.id}" class="text-primary-600 hover:text-primary-900">詳細</a>
-                        <button type="button" onclick="deleteFile(${file.id}, '${escapeHtml(file.original_name).replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-900">削除</button>
+                        <a href="/files/${file.id}" class="text-primary-600 hover:text-primary-900">${detailsText}</a>
+                        <button type="button" onclick="deleteFile(${file.id}, '${escapeHtml(file.original_name).replace(/'/g, "\\'")}')" class="text-red-600 hover:text-red-900">${get('common.delete')}</button>
                       </div>
                     </td>
                   </tr>
@@ -123,7 +142,7 @@ files.get('/', async (c) => {
 
     <script>
       async function deleteFile(fileId, fileName) {
-        if (!confirm('「' + fileName + '」を削除してもよろしいですか？\\n\\nこの操作は取り消せません。関連するダウンロードリンクも無効になります。')) {
+        if (!confirm('${deleteConfirmText}')) {
           return;
         }
 
@@ -132,19 +151,19 @@ files.get('/', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('ファイルを削除しました', 'success');
+            showToast('${deleteSuccessText}', 'success');
             location.reload();
           } else {
-            showToast(result.error || '削除に失敗しました', 'error');
+            showToast(result.error || '${deleteErrorText}', 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast('${errorText}', 'error');
         }
       }
     </script>
   `;
 
-  return c.html(layout({ title: 'ファイル一覧', user }, content));
+  return c.html(layout({ title: get('files.title'), user, lang }, content));
 });
 
 /**
@@ -154,6 +173,8 @@ files.get('/', async (c) => {
 files.get('/:id', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
+  const lang = c.get('lang') || 'ja';
+  // createTranslator is available if needed for future translations
   const fileId = parseInt(c.req.param('id'), 10);
 
   if (isNaN(fileId)) {
@@ -439,7 +460,7 @@ files.get('/:id', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: file.original_name, user }, content));
+  return c.html(layout({ title: file.original_name, user, lang }, content));
 });
 
 /**

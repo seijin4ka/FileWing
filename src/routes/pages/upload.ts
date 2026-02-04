@@ -8,6 +8,7 @@ import type { Env, Variables } from '../../types';
 import { layout } from '../../templates/layout';
 import { fileDropzone, select, input, textarea } from '../../templates/components/form';
 import { button } from '../../templates/components/button';
+import { createTranslator } from '../../i18n';
 
 const upload = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -17,6 +18,8 @@ const upload = new Hono<{ Bindings: Env; Variables: Variables }>();
  */
 upload.get('/', async (c) => {
   const user = c.get('user');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   const content = `
     <div class="max-w-2xl mx-auto">
@@ -396,7 +399,7 @@ upload.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: 'アップロード', user }, content));
+  return c.html(layout({ title: get('upload.title'), user, lang }, content));
 });
 
 export default upload;

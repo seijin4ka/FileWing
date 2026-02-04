@@ -4,11 +4,12 @@
  */
 
 import { Hono } from 'hono';
-import type { Env } from '../../types';
+import type { Env, Variables } from '../../types';
 import { layout, formatFileSize, localDateTime, escapeHtml, escapeJsString } from '../../templates/layout';
 import { getValidLinkByToken } from '../../services/d1';
+import { createTranslator } from '../../i18n';
 
-const download = new Hono<{ Bindings: Env }>();
+const download = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
  * GET /d/:token
@@ -16,20 +17,31 @@ const download = new Hono<{ Bindings: Env }>();
  */
 download.get('/:token', async (c) => {
   const token = c.req.param('token');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // リンク情報を取得
   const linkWithFile = await getValidLinkByToken(c.env.DB, token);
 
   // 無効なリンクの場合
   if (!linkWithFile) {
-    return c.html(
-      layout(
-        { title: 'リンクが無効です', hideHeader: true },
-        renderErrorPage('このリンクは無効か期限切れです', [
+    const errorTitle = lang === 'ja' ? 'リンクが無効です' : 'Invalid Link';
+    const errorMessage = lang === 'ja' ? 'このリンクは無効か期限切れです' : 'This link is invalid or expired';
+    const errorReasons = lang === 'ja'
+      ? [
           'リンクの有効期限が切れている可能性があります',
           'リンクが無効化されている可能性があります',
           '最大ダウンロード回数に達した可能性があります',
-        ])
+        ]
+      : [
+          'The link may have expired',
+          'The link may have been disabled',
+          'Maximum download count may have been reached',
+        ];
+    return c.html(
+      layout(
+        { title: errorTitle, hideHeader: true, lang },
+        renderErrorPage(errorMessage, errorReasons)
       )
     );
   }
@@ -202,7 +214,7 @@ download.get('/:token', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: 'ダウンロード', hideHeader: true, bodyClass: 'bg-gray-100' }, content));
+  return c.html(layout({ title: get('download.title'), hideHeader: true, bodyClass: 'bg-gray-100', lang }, content));
 });
 
 /**

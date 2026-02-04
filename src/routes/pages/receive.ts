@@ -15,6 +15,7 @@ import {
   getReceivedFilesByLink,
   getReceivedFileCount,
 } from '../../services/d1';
+import { createTranslator } from '../../i18n';
 
 const receive = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -25,6 +26,8 @@ const receive = new Hono<{ Bindings: Env; Variables: Variables }>();
 receive.get('/', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // 受信リンク一覧を取得
   const links = await getReceiveLinksByUser(c.env.DB, userId);
@@ -194,7 +197,7 @@ receive.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: '受信', user }, content));
+  return c.html(layout({ title: get('receive.title'), user, lang }, content));
 });
 
 /**
@@ -204,6 +207,8 @@ receive.get('/', async (c) => {
 receive.get('/:id', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
+  const lang = c.get('lang') || 'ja';
+  // createTranslator is available if needed for future translations
   const linkId = parseInt(c.req.param('id'), 10);
 
   if (isNaN(linkId)) {
@@ -361,7 +366,8 @@ receive.get('/:id', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: link.title || '受信リンク詳細', user }, content));
+  const detailTitle = lang === 'ja' ? '受信リンク詳細' : 'Receive Link Details';
+  return c.html(layout({ title: link.title || detailTitle, user, lang }, content));
 });
 
 /**
