@@ -1,40 +1,51 @@
-name = "file-uploader"
+name = "filewing"
 main = "src/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "YOUR_ACCOUNT_ID"
 
 # 開発環境では認証をスキップ
 [vars]
 SKIP_AUTH = "true"
 
-# 本番環境設定
-[env.production]
-vars = { SKIP_AUTH = "false" }
-
 # R2バケット
 [[r2_buckets]]
 binding = "R2_BUCKET"
-bucket_name = "file-uploader-bucket"
-preview_bucket_name = "file-uploader-bucket-preview"
+bucket_name = "filewing-bucket"
 
 # D1データベース
 [[d1_databases]]
 binding = "DB"
-database_name = "file-uploader-db"
+database_name = "filewing-db"
 database_id = "YOUR_DATABASE_ID"
 migrations_dir = "migrations"
 
 # Email Sending（Cloudflare Email Routing統合）
-# 注意: 事前にCloudflare Email Routingを有効化し、送信元ドメインを検証する必要があります
 [[send_email]]
 name = "EMAIL"
-# destination_address = "user@example.com"  # 特定の送信先に制限する場合
-# allowed_destination_addresses = ["user1@example.com", "user2@example.com"]  # 許可リスト
-
-# Cloudflare Access設定（本番環境で設定）
-# ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
-# ACCESS_AUD: アプリケーションのAUD値
 
 # 定期クリーンアップ（毎日深夜3時 JST = 18:00 UTC）
 [triggers]
 crons = ["0 18 * * *"]
+
+# =====================================================
+# 本番環境設定
+# =====================================================
+[env.production]
+vars = { SKIP_AUTH = "false" }
+
+[[env.production.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "filewing-bucket"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "filewing-db"
+database_id = "YOUR_DATABASE_ID"
+
+[[env.production.send_email]]
+name = "EMAIL"
+
+# Cloudflare Access設定（本番環境で設定）
+# ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
+# ACCESS_AUD: アプリケーションのAUD値
