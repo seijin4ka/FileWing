@@ -8,8 +8,9 @@ import type { Env, Variables, Language } from '../../types';
 import { layout, formatFileSize, formatRelativeTime } from '../../templates/layout';
 import { statCard, icons } from '../../templates/components/card';
 import { linkButton } from '../../templates/components/button';
-import { getUserStats, getRecentActivity } from '../../services/d1';
+import { getUserStats, getRecentActivity, getSystemUsageStats } from '../../services/d1';
 import { createTranslator } from '../../i18n';
+import { estimateCosts, formatCost } from '../../services/costs';
 
 const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -29,6 +30,22 @@ dashboard.get('/', async (c) => {
   // 最近のアクティビティを取得
   const activities = await getRecentActivity(c.env.DB, userId);
 
+  // コスト見積もり用の使用量を取得
+  const usage = await getSystemUsageStats(c.env.DB);
+  const estimatedApiRequests =
+    usage.uploadsThisMonth * 3 +
+    usage.downloadsThisMonth * 2 +
+    usage.fileCount * 2;
+  const costEstimate = estimateCosts({
+    totalStorageBytes: usage.totalStorageBytes,
+    fileCount: usage.fileCount,
+    uploadsThisMonth: usage.uploadsThisMonth,
+    downloadsThisMonth: usage.downloadsThisMonth,
+    apiRequestsThisMonth: estimatedApiRequests,
+    estimatedRowsRead: estimatedApiRequests * 10,
+    estimatedRowsWritten: usage.uploadsThisMonth * 5,
+  });
+
   const content = `
     <div class="space-y-8">
       <!-- ページヘッダー -->
@@ -47,6 +64,38 @@ dashboard.get('/', async (c) => {
         ${statCard({ label: get('dashboard.stats.activeLinks'), value: stats.active_links, icon: icons.link })}
         ${statCard({ label: get('dashboard.stats.totalDownloads'), value: stats.total_downloads, icon: icons.download })}
       </div>
+
+      <!-- コスト見積もりサマリー -->
+      <a href="/costs" class="block">
+        <div class="bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl p-6 text-white hover:from-primary-600 hover:to-primary-700 transition-all shadow-lg">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-primary-100 text-sm">${lang === 'ja' ? '今月の予想コスト' : 'Estimated Monthly Cost'}</p>
+              <p class="text-3xl font-bold mt-1">${formatCost(costEstimate.totalMonthly)}</p>
+              <p class="text-primary-200 text-sm mt-1">≈ ${formatCost(costEstimate.totalMonthly, 'JPY')}</p>
+            </div>
+            <div class="text-right">
+              <div class="inline-flex items-center px-3 py-1 rounded-full ${costEstimate.totalMonthly === 0 ? 'bg-green-400/20 text-green-100' : 'bg-yellow-400/20 text-yellow-100'} text-sm">
+                ${costEstimate.totalMonthly === 0 ? (lang === 'ja' ? '無料枠内' : 'Within Free Tier') : (lang === 'ja' ? '詳細を見る →' : 'View Details →')}
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <p class="text-primary-200">R2</p>
+              <p class="font-semibold">${formatCost(costEstimate.r2.total)}</p>
+            </div>
+            <div>
+              <p class="text-primary-200">D1</p>
+              <p class="font-semibold">${formatCost(costEstimate.d1.total)}</p>
+            </div>
+            <div>
+              <p class="text-primary-200">Workers</p>
+              <p class="font-semibold">${formatCost(costEstimate.workers.total)}</p>
+            </div>
+          </div>
+        </div>
+      </a>
 
       <!-- 最近のアクティビティ -->
       <div class="bg-white rounded-lg shadow-sm border">
