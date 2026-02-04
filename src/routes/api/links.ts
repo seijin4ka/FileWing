@@ -19,6 +19,11 @@ import {
 } from '../../services/d1';
 import { getFile, deleteFile } from '../../services/r2';
 import { hashPassword, verifyPassword } from '../../utils/crypto';
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+  clearFailedAttempts,
+} from '../../services/ratelimit';
 
 const links = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -181,10 +186,30 @@ links.get('/d/:token/download', async (c) => {
 
     // パスワードチェック（設定されている場合）
     if (linkWithFile.password_hash) {
+      const ipAddress = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
+
+      // レート制限チェック
+      const rateLimit = await checkRateLimit(c.env.DB, ipAddress, token, 'download');
+      if (!rateLimit.allowed) {
+        return c.json(
+          {
+            success: false,
+            error: `試行回数が上限に達しました。${Math.ceil((rateLimit.retryAfterSeconds || 0) / 60)}分後に再試行してください`,
+            retryAfterSeconds: rateLimit.retryAfterSeconds,
+          },
+          429
+        );
+      }
+
       const password = c.req.query('password') || c.req.header('X-Download-Password');
       if (!password) {
         return c.json(
-          { success: false, error: 'パスワードが必要です', requirePassword: true },
+          {
+            success: false,
+            error: 'パスワードが必要です',
+            requirePassword: true,
+            remainingAttempts: rateLimit.remainingAttempts,
+          },
           401
         );
       }
@@ -192,11 +217,20 @@ links.get('/d/:token/download', async (c) => {
       // パスワード検証（PBKDF2、旧形式のSHA-256もサポート）
       const isValid = await verifyPassword(password, linkWithFile.password_hash);
       if (!isValid) {
+        // 失敗を記録
+        await recordFailedAttempt(c.env.DB, ipAddress, token, 'download');
         return c.json(
-          { success: false, error: 'パスワードが正しくありません' },
+          {
+            success: false,
+            error: 'パスワードが正しくありません',
+            remainingAttempts: rateLimit.remainingAttempts - 1,
+          },
           401
         );
       }
+
+      // 認証成功時は失敗記録をクリア
+      await clearFailedAttempts(c.env.DB, ipAddress, token, 'download');
     }
 
     // R2からファイルを取得
