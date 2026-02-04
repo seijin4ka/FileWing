@@ -139,4 +139,10 @@ app.notFound((c) => {
   );
 });
 
-export default app;
+// 定期クリーンアップジョブ
+import { handleScheduled } from './scheduled';
+
+export default {
+  fetch: app.fetch,
+  scheduled: handleScheduled,
+};

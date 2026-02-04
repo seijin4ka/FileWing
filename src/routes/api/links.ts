@@ -14,8 +14,10 @@ import {
   getValidLinkByToken,
   incrementDownloadCount,
   logDownload,
+  shouldDeleteFile,
+  markFileDeleted,
 } from '../../services/d1';
-import { getFile } from '../../services/r2';
+import { getFile, deleteFile } from '../../services/r2';
 
 const links = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -217,13 +219,25 @@ links.get('/d/:token/download', async (c) => {
       );
     }
 
-    // ダウンロードカウントをインクリメント
+    // ダウンロードカウントをインクリメント（上限到達時は自動無効化）
     await incrementDownloadCount(c.env.DB, linkWithFile.id);
 
     // ダウンロード履歴を記録
     const ipAddress = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For');
     const userAgent = c.req.header('User-Agent');
     await logDownload(c.env.DB, linkWithFile.id, ipAddress, userAgent);
+
+    // ファイルに有効なリンクがなくなった場合はR2から削除
+    const shouldDelete = await shouldDeleteFile(c.env.DB, linkWithFile.file_id);
+    if (shouldDelete) {
+      try {
+        await deleteFile(c.env.R2_BUCKET, linkWithFile.file.r2_key);
+        await markFileDeleted(c.env.DB, linkWithFile.file_id);
+        console.log(`ファイル削除: ${linkWithFile.file.r2_key}`);
+      } catch (deleteError) {
+        console.error('ファイル削除エラー:', deleteError);
+      }
+    }
 
     // ファイル名をエンコード（RFC 5987）
     const encodedFilename = encodeURIComponent(linkWithFile.file.original_name)

@@ -778,3 +778,104 @@ export async function markReceivedFileDownloaded(
     .bind(fileId)
     .run();
 }
+
+// =====================================================
+// クリーンアップ関連
+// =====================================================
+
+/**
+ * 削除対象のファイル（R2キー）を取得
+ * - すべてのリンクが無効化または期限切れのファイル
+ * - deleted_atが設定されていないファイルのみ
+ */
+export async function getFilesToCleanup(
+  db: D1Database
+): Promise<Array<{ id: number; r2_key: string }>> {
+  const result = await db
+    .prepare(
+      `SELECT f.id, f.r2_key
+       FROM files f
+       WHERE f.deleted_at IS NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM download_links dl
+           WHERE dl.file_id = f.id
+             AND dl.disabled_at IS NULL
+             AND dl.expires_at > datetime('now')
+             AND (dl.max_downloads IS NULL OR dl.download_count < dl.max_downloads)
+         )`
+    )
+    .all<{ id: number; r2_key: string }>();
+
+  return result.results;
+}
+
+/**
+ * ファイルのR2キーが削除対象か確認
+ * すべてのリンクが無効化または期限切れまたは回数制限に達している場合true
+ */
+export async function shouldDeleteFile(
+  db: D1Database,
+  fileId: number
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `SELECT COUNT(*) as active_links
+       FROM download_links
+       WHERE file_id = ?
+         AND disabled_at IS NULL
+         AND expires_at > datetime('now')
+         AND (max_downloads IS NULL OR download_count < max_downloads)`
+    )
+    .bind(fileId)
+    .first<{ active_links: number }>();
+
+  return (result?.active_links || 0) === 0;
+}
+
+/**
+ * ファイルを論理削除（deleted_atを設定）
+ */
+export async function markFileDeleted(
+  db: D1Database,
+  fileId: number
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE files SET deleted_at = datetime('now') WHERE id = ?`
+    )
+    .bind(fileId)
+    .run();
+}
+
+/**
+ * 受信ファイルの削除対象を取得
+ * - リンクが無効化または期限切れ
+ */
+export async function getReceivedFilesToCleanup(
+  db: D1Database
+): Promise<Array<{ id: number; r2_key: string }>> {
+  const result = await db
+    .prepare(
+      `SELECT rf.id, rf.r2_key
+       FROM received_files rf
+       JOIN receive_links rl ON rf.receive_link_id = rl.id
+       WHERE rf.downloaded_at IS NOT NULL
+         AND (rl.disabled_at IS NOT NULL OR rl.expires_at <= datetime('now'))`
+    )
+    .all<{ id: number; r2_key: string }>();
+
+  return result.results;
+}
+
+/**
+ * 受信ファイルを削除
+ */
+export async function deleteReceivedFile(
+  db: D1Database,
+  fileId: number
+): Promise<void> {
+  await db
+    .prepare('DELETE FROM received_files WHERE id = ?')
+    .bind(fileId)
+    .run();
+}

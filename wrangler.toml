@@ -29,3 +29,7 @@ migrations_dir = "migrations"
 # Cloudflare Access設定（本番環境で設定）
 # ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
 # ACCESS_AUD: アプリケーションのAUD値
+
+# 定期クリーンアップ（毎日深夜3時 JST = 18:00 UTC）
+[triggers]
+crons = ["0 18 * * *"]
