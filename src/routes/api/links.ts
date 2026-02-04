@@ -18,6 +18,7 @@ import {
   markFileDeleted,
 } from '../../services/d1';
 import { getFile, deleteFile } from '../../services/r2';
+import { hashPassword, verifyPassword } from '../../utils/crypto';
 
 const links = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -50,15 +51,10 @@ links.post('/files/:fileId/links', async (c) => {
     const expiresDays = body.expires_days || 7;
 
     // パスワードハッシュ（設定されている場合）
-    // 注意: 本番環境ではより強力なハッシュアルゴリズムを使用
+    // PBKDF2 + ソルトで強力なハッシュを生成
     let passwordHash: string | undefined;
     if (body.password) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(body.password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      passwordHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
+      passwordHash = await hashPassword(body.password);
     }
 
     // ダウンロードリンクを作成
@@ -193,15 +189,9 @@ links.get('/d/:token/download', async (c) => {
         );
       }
 
-      // パスワード検証
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const inputHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-
-      if (inputHash !== linkWithFile.password_hash) {
+      // パスワード検証（PBKDF2、旧形式のSHA-256もサポート）
+      const isValid = await verifyPassword(password, linkWithFile.password_hash);
+      if (!isValid) {
         return c.json(
           { success: false, error: 'パスワードが正しくありません' },
           401
