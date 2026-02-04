@@ -11,7 +11,8 @@ import {
   getReceivedFileCount,
   createReceivedFile,
 } from '../../services/d1';
-import { uploadFile, guessMimeType, sanitizeFilename } from '../../services/r2';
+import { uploadFile, sanitizeFilename } from '../../services/r2';
+import { validateMimeType } from '../../utils/mime';
 
 const receiveGuest = new Hono<{ Bindings: Env }>();
 
@@ -381,7 +382,15 @@ receiveGuest.post('/:token/upload', async (c) => {
       return c.json({ success: false, error: 'ファイルサイズが大きすぎます' }, 400);
     }
 
-    const mimeType = file.type || guessMimeType(file.name);
+    // ファイルデータを読み込み
+    const arrayBuffer = await file.arrayBuffer();
+
+    // MIMEタイプをマジックバイトで検証（クライアント提供値より優先）
+    const { mime: mimeType } = validateMimeType(
+      arrayBuffer,
+      file.name,
+      file.type || 'application/octet-stream'
+    );
 
     // R2キーを生成（受信ファイル用のプレフィックス）
     // ファイル名をサニタイズしてパストラバーサルを防止
@@ -389,7 +398,6 @@ receiveGuest.post('/:token/upload', async (c) => {
     const r2Key = `received/${link.id}/${Date.now()}-${crypto.randomUUID()}/${sanitizedName}`;
 
     // R2にアップロード
-    const arrayBuffer = await file.arrayBuffer();
     await uploadFile(c.env.R2_BUCKET, r2Key, arrayBuffer, mimeType);
 
     // IPアドレス取得
