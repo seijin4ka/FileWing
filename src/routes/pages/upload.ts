@@ -101,38 +101,65 @@ upload.get('/', async (c) => {
         </div>
       </div>
 
-      <!-- 結果表示 -->
+      <!-- 結果表示（リダイレクト中） -->
       <div id="upload-result" class="hidden mt-6">
-        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-          <div class="flex items-start">
-            <svg class="w-6 h-6 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <div class="ml-3 flex-1">
-              <h3 class="text-lg font-medium text-green-800">アップロード完了</h3>
-              <div class="mt-4 space-y-3">
-                <div>
-                  <label class="block text-sm font-medium text-green-700">ダウンロードリンク</label>
-                  <div class="mt-1 flex rounded-md shadow-sm">
-                    <input type="text" id="download-url" readonly class="flex-1 min-w-0 block px-3 py-2 rounded-l-md border border-green-300 bg-white text-sm" />
-                    <button type="button" onclick="copyUrl()" class="inline-flex items-center px-4 py-2 border border-l-0 border-green-300 rounded-r-md bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100">
-                      コピー
-                    </button>
-                  </div>
-                </div>
-                <div id="email-status" class="hidden">
-                  <p class="text-sm text-green-700">
-                    <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                    </svg>
-                    メールを送信しました
-                  </p>
-                </div>
+        <div class="bg-primary-50 border border-primary-200 rounded-lg p-8">
+          <div class="text-center">
+            <!-- 成功アニメーション -->
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4 animate-pulse">
+              <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">アップロード完了！</h3>
+            <p class="text-gray-600 mb-4">ファイルのアップロードが完了しました</p>
+
+            <!-- ダウンロードURL表示 -->
+            <div class="bg-white rounded-lg p-4 mb-4 border">
+              <label class="block text-sm font-medium text-gray-700 mb-2">ダウンロードリンク</label>
+              <div class="flex rounded-md shadow-sm">
+                <input type="text" id="download-url" readonly class="flex-1 min-w-0 block px-3 py-2 rounded-l-md border border-gray-300 bg-gray-50 text-sm font-mono" />
+                <button type="button" onclick="copyUrl()" class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                  </svg>
+                  コピー
+                </button>
               </div>
-              <div class="mt-4 flex space-x-4">
-                <a href="/files" class="text-sm font-medium text-green-700 hover:text-green-600">ファイル一覧へ →</a>
-                <button type="button" onclick="resetForm()" class="text-sm font-medium text-green-700 hover:text-green-600">別のファイルをアップロード</button>
-              </div>
+            </div>
+
+            <!-- リダイレクト案内 -->
+            <div class="flex items-center justify-center text-sm text-gray-500 mb-4">
+              <svg class="animate-spin h-4 w-4 mr-2 text-primary-500" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span id="redirect-message">ファイル詳細ページに移動します...</span>
+            </div>
+
+            <!-- アクションボタン -->
+            <div class="flex items-center justify-center space-x-4">
+              <a id="detail-link" href="/files" class="inline-flex items-center px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                今すぐ詳細を見る
+              </a>
+              <button type="button" onclick="cancelRedirectAndReset()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                別のファイルをアップロード
+              </button>
+            </div>
+
+            <div id="email-status" class="hidden mt-4">
+              <p class="text-sm text-primary-700 flex items-center justify-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                ダウンロードリンクをメールで送信しました
+              </p>
             </div>
           </div>
         </div>
@@ -266,7 +293,9 @@ upload.get('/', async (c) => {
           }
 
           // 結果を表示
+          const fileId = uploadResult.file.id;
           document.getElementById('download-url').value = linkResult.link.url;
+          document.getElementById('detail-link').href = '/files/' + fileId;
           progressDiv.classList.add('hidden');
           document.getElementById('upload-result').classList.remove('hidden');
 
@@ -294,6 +323,9 @@ upload.get('/', async (c) => {
 
           showToast('アップロードが完了しました', 'success');
 
+          // 3秒後にファイル詳細ページにリダイレクト
+          startRedirectCountdown(fileId);
+
         } catch (error) {
           console.error('Error:', error);
           showToast(error.message || 'エラーが発生しました', 'error');
@@ -311,12 +343,55 @@ upload.get('/', async (c) => {
         showToast('リンクをコピーしました', 'success');
       }
 
+      // リダイレクトタイマー
+      let redirectTimer = null;
+      let countdownTimer = null;
+
+      function startRedirectCountdown(fileId) {
+        let seconds = 3;
+        const messageEl = document.getElementById('redirect-message');
+
+        // カウントダウン表示を更新
+        countdownTimer = setInterval(() => {
+          seconds--;
+          if (seconds > 0) {
+            messageEl.textContent = seconds + '秒後にファイル詳細ページに移動します...';
+          } else {
+            messageEl.textContent = 'リダイレクト中...';
+          }
+        }, 1000);
+
+        // 3秒後にリダイレクト
+        redirectTimer = setTimeout(() => {
+          clearInterval(countdownTimer);
+          window.location.href = '/files/' + fileId;
+        }, 3000);
+      }
+
+      function cancelRedirect() {
+        if (redirectTimer) {
+          clearTimeout(redirectTimer);
+          redirectTimer = null;
+        }
+        if (countdownTimer) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+        }
+        document.getElementById('redirect-message').textContent = 'リダイレクトをキャンセルしました';
+      }
+
+      function cancelRedirectAndReset() {
+        cancelRedirect();
+        resetForm();
+      }
+
       // フォームをリセット
       function resetForm() {
         document.getElementById('upload-form').reset();
         clearFile();
         document.getElementById('upload-result').classList.add('hidden');
         document.getElementById('email-status').classList.add('hidden');
+        document.getElementById('redirect-message').textContent = 'ファイル詳細ページに移動します...';
       }
     </script>
   `;
