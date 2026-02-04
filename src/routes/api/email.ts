@@ -1,13 +1,13 @@
 /**
  * メール送信API
- * ダウンロードリンクをメールで送信
+ * Cloudflare Workers Email Sendingでダウンロードリンクを送信
  */
 
 import { Hono } from 'hono';
 import type { Env, Variables, SendEmailRequest } from '../../types';
 import { getLinkById, getFileById, addLinkRecipients } from '../../services/d1';
 import {
-  sendEmail,
+  sendEmailToMultiple,
   generateDownloadNotificationHtml,
   generateDownloadNotificationText,
   formatFileSize,
@@ -29,10 +29,10 @@ email.post('/links/:id/send', async (c) => {
     return c.json({ success: false, error: '無効なリンクIDです' }, 400);
   }
 
-  // Resend APIキーの確認
-  if (!c.env.RESEND_API_KEY) {
+  // Email Sendingバインディングの確認
+  if (!c.env.EMAIL) {
     return c.json(
-      { success: false, error: 'メール送信が設定されていません' },
+      { success: false, error: 'メール送信が設定されていません。Cloudflare Email Routingを有効化してください。' },
       503
     );
   }
@@ -89,6 +89,10 @@ email.post('/links/:id/send', async (c) => {
     const url = new URL(c.req.url);
     const downloadUrl = `${url.origin}/d/${link.token}`;
 
+    // 送信元メールアドレス（Email Routingで検証済みのドメイン）
+    // 注意: 実際の運用ではEmail Routingで設定したドメインのアドレスを使用
+    const fromEmail = `noreply@${url.hostname}`;
+
     // メール本文を生成
     const senderName = user.name || user.email;
     const html = generateDownloadNotificationHtml({
@@ -110,22 +114,20 @@ email.post('/links/:id/send', async (c) => {
     });
 
     // メール送信
-    const result = await sendEmail({
-      apiKey: c.env.RESEND_API_KEY,
-      to: body.recipients,
-      from: {
-        name: 'ファイル共有システム',
-        // 注意: 実際の運用では検証済みドメインのメールアドレスを使用
-        email: 'noreply@yourdomain.com',
-      },
-      subject: `${senderName} さんからファイルが届いています: ${file.original_name}`,
+    const result = await sendEmailToMultiple(
+      c.env.EMAIL,
+      body.recipients,
+      fromEmail,
+      'ファイル共有システム',
+      `${senderName} さんからファイルが届いています: ${file.original_name}`,
       html,
-      text,
-    });
+      text
+    );
 
     if (!result.success) {
+      console.error('メール送信エラー:', result.errors);
       return c.json(
-        { success: false, error: result.error || 'メール送信に失敗しました' },
+        { success: false, error: `一部のメール送信に失敗しました: ${result.errors.join(', ')}` },
         500
       );
     }
@@ -135,7 +137,6 @@ email.post('/links/:id/send', async (c) => {
 
     return c.json({
       success: true,
-      messageId: result.messageId,
       sentTo: body.recipients,
     });
   } catch (error) {

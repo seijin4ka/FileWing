@@ -23,8 +23,12 @@ database_name = "file-uploader-db"
 database_id = "YOUR_DATABASE_ID"
 migrations_dir = "migrations"
 
-# Resend APIキー（本番環境でシークレットとして設定）
-# wrangler secret put RESEND_API_KEY
+# Email Sending（Cloudflare Email Routing統合）
+# 注意: 事前にCloudflare Email Routingを有効化し、送信元ドメインを検証する必要があります
+[[send_email]]
+name = "EMAIL"
+# destination_address = "user@example.com"  # 特定の送信先に制限する場合
+# allowed_destination_addresses = ["user1@example.com", "user2@example.com"]  # 許可リスト
 
 # Cloudflare Access設定（本番環境で設定）
 # ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
