@@ -224,8 +224,8 @@ export function fileDropzone(props: {
   const {
     name,
     accept = '*/*',
-    maxSize = '100MB',
-    helpText = `最大 ${maxSize} まで`,
+    maxSize,
+    helpText = maxSize ? `最大 ${maxSize} まで` : 'すべてのファイル形式に対応',
   } = props;
 
   return `
