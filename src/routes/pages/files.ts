@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables, DownloadLink } from '../../types';
-import { layout, formatFileSize, formatDateTime, escapeHtml } from '../../templates/layout';
+import { layout, formatFileSize, localDateTime, escapeHtml } from '../../templates/layout';
 import { button, linkButton } from '../../templates/components/button';
 import { badge } from '../../templates/components/table';
 import { icons } from '../../templates/components/card';
@@ -104,7 +104,7 @@ files.get('/', async (c) => {
                       ${file.totalDownloads} 回
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${formatDateTime(file.created_at)}
+                      ${localDateTime(file.created_at)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div class="flex items-center justify-end space-x-2">
@@ -198,7 +198,7 @@ files.get('/:id', async (c) => {
                 <span>•</span>
                 <span>${file.mime_type}</span>
                 <span>•</span>
-                <span>${formatDateTime(file.created_at)}</span>
+                <span>${localDateTime(file.created_at)}</span>
               </div>
             </div>
           </div>
@@ -472,9 +472,9 @@ function renderLinkItem(link: DownloadLink, baseUrl: string): string {
           <div class="mt-2 flex items-center space-x-4 text-sm text-gray-500">
             <span>DL: ${link.download_count}${link.max_downloads ? `/${link.max_downloads}` : ''}</span>
             <span>•</span>
-            <span>期限: ${formatDateTime(link.expires_at)}</span>
+            <span>期限: ${localDateTime(link.expires_at)}</span>
             <span>•</span>
-            <span>作成: ${formatDateTime(link.created_at)}</span>
+            <span>作成: ${localDateTime(link.created_at)}</span>
           </div>
           ${isActive ? `
           <div class="mt-2">

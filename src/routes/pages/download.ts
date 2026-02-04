@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../../types';
-import { layout, formatFileSize, formatDateTime, escapeHtml, escapeJsString } from '../../templates/layout';
+import { layout, formatFileSize, localDateTime, escapeHtml, escapeJsString } from '../../templates/layout';
 import { getValidLinkByToken } from '../../services/d1';
 
 const download = new Hono<{ Bindings: Env }>();
@@ -84,7 +84,7 @@ download.get('/:token', async (c) => {
                   </svg>
                   有効期限
                 </span>
-                <span>${formatDateTime(expires_at)}</span>
+                ${localDateTime(expires_at)}
               </div>
               ${remainingDownloads !== null ? `
               <div class="flex items-center justify-between text-gray-600">

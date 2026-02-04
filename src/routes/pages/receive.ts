@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables, ReceiveLink } from '../../types';
-import { layout, formatFileSize, formatDateTime, escapeHtml } from '../../templates/layout';
+import { layout, formatFileSize, localDateTime, escapeHtml } from '../../templates/layout';
 import { button } from '../../templates/components/button';
 import { badge } from '../../templates/components/table';
 import { icons } from '../../templates/components/card';
@@ -240,8 +240,8 @@ receive.get('/:id', async (c) => {
               ${isActive ? badge({ text: '有効', variant: 'success' }) : badge({ text: '無効', variant: 'default' })}
             </div>
             <div class="mt-2 space-y-1 text-sm text-gray-500">
-              <p>作成日: ${formatDateTime(link.created_at)}</p>
-              <p>有効期限: ${formatDateTime(link.expires_at)}</p>
+              <p>作成日: ${localDateTime(link.created_at)}</p>
+              <p>有効期限: ${localDateTime(link.expires_at)}</p>
               ${link.max_files ? `<p>最大ファイル数: ${link.max_files}</p>` : ''}
               <p>受信ファイル数: ${files.length}</p>
             </div>
@@ -308,7 +308,7 @@ receive.get('/:id', async (c) => {
                       ${file.message ? `<div class="text-xs text-gray-400 mt-1">${escapeHtml(file.message)}</div>` : ''}
                     </td>
                     <td class="px-6 py-4 text-sm text-gray-500">
-                      ${formatDateTime(file.uploaded_at)}
+                      ${localDateTime(file.uploaded_at)}
                       ${file.ip_address ? `<div class="text-xs text-gray-400">IP: ${file.ip_address}</div>` : ''}
                     </td>
                     <td class="px-6 py-4">
@@ -385,7 +385,7 @@ function renderLinkItem(
           <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500">
             <span>受信: ${link.file_count}件</span>
             <span>•</span>
-            <span>期限: ${formatDateTime(link.expires_at)}</span>
+            <span>期限: ${localDateTime(link.expires_at)}</span>
           </div>
         </div>
         <div class="flex items-center space-x-2 ml-4">
