@@ -25,8 +25,8 @@ upload.get('/', async (c) => {
     <div class="max-w-2xl mx-auto">
       <!-- ページヘッダー -->
       <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">ファイルをアップロード</h1>
-        <p class="text-gray-600">ファイルをアップロードして共有リンクを作成できます</p>
+        <h1 class="text-2xl font-bold text-gray-900">${get('upload.pageTitle')}</h1>
+        <p class="text-gray-600">${get('upload.pageDescription')}</p>
       </div>
 
       <!-- アップロードフォーム -->
@@ -36,58 +36,57 @@ upload.get('/', async (c) => {
 
         <!-- オプション設定 -->
         <div class="bg-white rounded-lg shadow-sm border p-6 space-y-4">
-          <h2 class="text-lg font-medium text-gray-900 mb-4">共有設定</h2>
+          <h2 class="text-lg font-medium text-gray-900 mb-4">${get('upload.settings')}</h2>
 
           ${select({
             name: 'expires_days',
-            label: '有効期限',
+            label: get('upload.expiresIn'),
             options: [
-              { value: '1', label: '1日' },
-              { value: '3', label: '3日' },
-              { value: '7', label: '7日（推奨）' },
-              { value: '10', label: '10日' },
+              { value: '1', label: '1 ' + get('upload.days') },
+              { value: '3', label: '3 ' + get('upload.days') },
+              { value: '7', label: '7 ' + get('upload.daysRecommended') },
+              { value: '10', label: '10 ' + get('upload.days') },
             ],
             value: '7',
-            helpText: 'リンクの有効期限を設定します',
           })}
 
           ${input({
             name: 'password',
-            label: 'パスワード（オプション）',
+            label: get('upload.passwordOptional'),
             type: 'password',
-            placeholder: 'ダウンロード時に必要なパスワード',
-            helpText: '設定するとダウンロード時にパスワード入力が必要になります',
+            placeholder: get('upload.passwordPlaceholder'),
+            helpText: get('upload.passwordHelp'),
           })}
 
           ${input({
             name: 'max_downloads',
-            label: '最大ダウンロード回数（オプション）',
+            label: get('upload.maxDownloads'),
             type: 'number',
-            placeholder: '無制限',
+            placeholder: get('upload.maxDownloadsPlaceholder'),
             attrs: { min: '1', max: '1000' },
-            helpText: '指定回数ダウンロードされるとリンクが無効になります',
+            helpText: get('upload.maxDownloadsHelp'),
           })}
 
           ${textarea({
             name: 'recipients',
-            label: '送信先メールアドレス（オプション）',
-            placeholder: 'example@company.com\nuser@example.org',
+            label: get('upload.recipients'),
+            placeholder: get('upload.recipientsPlaceholder'),
             rows: 3,
-            helpText: '1行に1つのメールアドレスを入力してください',
+            helpText: get('upload.recipientsHelp'),
           })}
 
           ${textarea({
             name: 'message',
-            label: 'メッセージ（オプション）',
-            placeholder: 'ダウンロードリンクと一緒に送信するメッセージ',
+            label: get('upload.message'),
+            placeholder: get('upload.messagePlaceholder'),
             rows: 3,
           })}
         </div>
 
         <!-- 送信ボタン -->
         <div class="flex items-center justify-between">
-          <a href="/" class="text-gray-600 hover:text-gray-900">キャンセル</a>
-          ${button({ text: 'アップロード', type: 'submit', variant: 'primary', size: 'lg', id: 'submit-btn' })}
+          <a href="/" class="text-gray-600 hover:text-gray-900">${get('common.cancel')}</a>
+          ${button({ text: get('common.upload'), type: 'submit', variant: 'primary', size: 'lg', id: 'submit-btn' })}
         </div>
       </form>
 
@@ -95,7 +94,7 @@ upload.get('/', async (c) => {
       <div id="upload-progress" class="hidden mt-6">
         <div class="bg-white rounded-lg shadow-sm border p-6">
           <div class="flex items-center justify-between mb-2">
-            <span class="text-sm font-medium text-gray-700">アップロード中...</span>
+            <span class="text-sm font-medium text-gray-700">${get('upload.uploading')}</span>
             <span id="progress-percent" class="text-sm text-gray-500">0%</span>
           </div>
           <div class="w-full bg-gray-200 rounded-full h-2">
@@ -114,19 +113,19 @@ upload.get('/', async (c) => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
               </svg>
             </div>
-            <h3 class="text-xl font-bold text-gray-900 mb-2">アップロード完了！</h3>
-            <p class="text-gray-600 mb-4">ファイルのアップロードが完了しました</p>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">${get('upload.uploadComplete')}</h3>
+            <p class="text-gray-600 mb-4">${get('upload.uploadCompleteMessage')}</p>
 
             <!-- ダウンロードURL表示 -->
             <div class="bg-white rounded-lg p-4 mb-4 border">
-              <label class="block text-sm font-medium text-gray-700 mb-2">ダウンロードリンク</label>
+              <label class="block text-sm font-medium text-gray-700 mb-2">${get('upload.downloadLink')}</label>
               <div class="flex rounded-md shadow-sm">
                 <input type="text" id="download-url" readonly class="flex-1 min-w-0 block px-3 py-2 rounded-l-md border border-gray-300 bg-gray-50 text-sm font-mono" />
                 <button type="button" onclick="copyUrl()" class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 rounded-r-md bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 transition-colors">
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
                   </svg>
-                  コピー
+                  ${get('common.copy')}
                 </button>
               </div>
             </div>
@@ -137,7 +136,7 @@ upload.get('/', async (c) => {
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span id="redirect-message">ファイル詳細ページに移動します...</span>
+              <span id="redirect-message">${get('upload.redirecting')}</span>
             </div>
 
             <!-- アクションボタン -->
@@ -146,13 +145,13 @@ upload.get('/', async (c) => {
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                 </svg>
-                今すぐ詳細を見る
+                ${get('upload.viewDetails')}
               </a>
               <button type="button" onclick="cancelRedirectAndReset()" class="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
-                別のファイルをアップロード
+                ${get('upload.uploadAnother')}
               </button>
             </div>
 
@@ -161,7 +160,7 @@ upload.get('/', async (c) => {
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                 </svg>
-                ダウンロードリンクをメールで送信しました
+                ${get('upload.emailSent')}
               </p>
             </div>
           </div>
@@ -170,6 +169,18 @@ upload.get('/', async (c) => {
     </div>
 
     <script>
+      // i18n strings
+      const i18n = {
+        selectFile: '${get('upload.selectFile')}',
+        uploadFailed: '${get('errors.uploadFailed')}',
+        emailFailed: '${get('upload.emailFailed')}',
+        linkCopied: '${get('common.copied')}',
+        redirecting: '${get('upload.redirecting')}',
+        redirectingIn: '${get('upload.redirectingIn')}',
+        redirectCancelled: '${get('upload.redirectCancelled')}',
+        uploadComplete: '${get('upload.uploadComplete')}',
+        error: '${get('common.error')}',
+      };
       let selectedFile = null;
 
       // ドラッグ&ドロップの設定
@@ -224,7 +235,7 @@ upload.get('/', async (c) => {
         e.preventDefault();
 
         if (!selectedFile) {
-          showToast('ファイルを選択してください', 'error');
+          showToast(i18n.selectFile, 'error');
           return;
         }
 
@@ -262,7 +273,7 @@ upload.get('/', async (c) => {
               }
             };
 
-            xhr.onerror = () => reject(new Error('アップロードに失敗しました'));
+            xhr.onerror = () => reject(new Error(i18n.uploadFailed));
             xhr.send(formData);
           });
 
@@ -314,19 +325,19 @@ upload.get('/', async (c) => {
               if (emailResult.success) {
                 document.getElementById('email-status').classList.remove('hidden');
               } else {
-                showToast('メール送信に失敗しました: ' + emailResult.error, 'warning');
+                showToast(i18n.emailFailed + ': ' + emailResult.error, 'warning');
               }
             }
           }
 
-          showToast('アップロードが完了しました', 'success');
+          showToast(i18n.uploadComplete, 'success');
 
           // 3秒後にファイル詳細ページにリダイレクト
           startRedirectCountdown(fileId);
 
         } catch (error) {
           console.error('Error:', error);
-          showToast(error.message || 'エラーが発生しました', 'error');
+          showToast(error.message || i18n.error, 'error');
           progressDiv.classList.add('hidden');
         } finally {
           submitBtn.disabled = false;
@@ -338,7 +349,7 @@ upload.get('/', async (c) => {
         const urlInput = document.getElementById('download-url');
         urlInput.select();
         document.execCommand('copy');
-        showToast('リンクをコピーしました', 'success');
+        showToast(i18n.linkCopied, 'success');
       }
 
       // リダイレクトタイマー
@@ -353,9 +364,9 @@ upload.get('/', async (c) => {
         countdownTimer = setInterval(() => {
           seconds--;
           if (seconds > 0) {
-            messageEl.textContent = seconds + '秒後にファイル詳細ページに移動します...';
+            messageEl.textContent = seconds + ' ' + i18n.redirectingIn;
           } else {
-            messageEl.textContent = 'リダイレクト中...';
+            messageEl.textContent = i18n.redirecting;
           }
         }, 1000);
 
@@ -375,7 +386,7 @@ upload.get('/', async (c) => {
           clearInterval(countdownTimer);
           countdownTimer = null;
         }
-        document.getElementById('redirect-message').textContent = 'リダイレクトをキャンセルしました';
+        document.getElementById('redirect-message').textContent = i18n.redirectCancelled;
       }
 
       function cancelRedirectAndReset() {
@@ -389,7 +400,7 @@ upload.get('/', async (c) => {
         clearFile();
         document.getElementById('upload-result').classList.add('hidden');
         document.getElementById('email-status').classList.add('hidden');
-        document.getElementById('redirect-message').textContent = 'ファイル詳細ページに移動します...';
+        document.getElementById('redirect-message').textContent = i18n.redirecting;
       }
     </script>
   `;

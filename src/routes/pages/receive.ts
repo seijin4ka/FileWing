@@ -48,39 +48,39 @@ receive.get('/', async (c) => {
       <!-- ページヘッダー -->
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">受信</h1>
-          <p class="text-gray-600">外部からファイルを受け取るリンクを作成</p>
+          <h1 class="text-2xl font-bold text-gray-900">${get('receive.pageTitle')}</h1>
+          <p class="text-gray-600">${get('receive.pageDescription')}</p>
         </div>
       </div>
 
       <!-- リンク作成フォーム -->
       <div class="bg-white rounded-lg shadow-sm border p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">新しい受信リンクを作成</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">${get('receive.createNewLink')}</h2>
         <form id="create-link-form" class="space-y-4">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label for="title" class="block text-sm font-medium text-gray-700 mb-1">タイトル</label>
-              <input type="text" id="title" name="title" placeholder="受信リンクの説明" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              <label for="title" class="block text-sm font-medium text-gray-700 mb-1">${get('receive.linkTitle')}</label>
+              <input type="text" id="title" name="title" placeholder="${get('receive.titlePlaceholder')}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
             </div>
             <div>
-              <label for="expires_days" class="block text-sm font-medium text-gray-700 mb-1">有効期限</label>
+              <label for="expires_days" class="block text-sm font-medium text-gray-700 mb-1">${get('receive.expiresIn')}</label>
               <select id="expires_days" name="expires_days" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                <option value="1">1日</option>
-                <option value="3">3日</option>
-                <option value="7" selected>7日</option>
-                <option value="10">10日</option>
+                <option value="1">1 ${get('upload.days')}</option>
+                <option value="3">3 ${get('upload.days')}</option>
+                <option value="7" selected>7 ${get('upload.days')}</option>
+                <option value="10">10 ${get('upload.days')}</option>
               </select>
             </div>
             <div>
-              <label for="max_files" class="block text-sm font-medium text-gray-700 mb-1">最大ファイル数</label>
-              <input type="number" id="max_files" name="max_files" placeholder="無制限" min="1" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              <label for="max_files" class="block text-sm font-medium text-gray-700 mb-1">${get('receive.maxFiles')}</label>
+              <input type="number" id="max_files" name="max_files" placeholder="${get('receive.maxFilesPlaceholder')}" min="1" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
             </div>
             <div>
-              <label for="password" class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
-              <input type="password" id="password" name="password" placeholder="オプション" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              <label for="password" class="block text-sm font-medium text-gray-700 mb-1">${get('receive.password')}</label>
+              <input type="password" id="password" name="password" placeholder="${get('receive.passwordOptional')}" class="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
             </div>
           </div>
-          ${button({ text: '受信リンクを作成', type: 'submit', variant: 'accent' })}
+          ${button({ text: get('receive.createLink'), type: 'submit', variant: 'accent' })}
         </form>
       </div>
 
@@ -91,13 +91,13 @@ receive.get('/', async (c) => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
           <div class="ml-3 flex-1">
-            <h3 class="text-lg font-medium text-green-800">受信リンクを作成しました</h3>
+            <h3 class="text-lg font-medium text-green-800">${get('receive.linkCreated')}</h3>
             <div class="mt-2">
-              <label class="block text-sm font-medium text-green-700">受信用URL</label>
+              <label class="block text-sm font-medium text-green-700">${get('receive.receiveUrl')}</label>
               <div class="mt-1 flex rounded-md shadow-sm">
                 <input type="text" id="created-url" readonly class="flex-1 min-w-0 block px-3 py-2 rounded-l-md border border-green-300 bg-white text-sm" />
                 <button type="button" onclick="copyCreatedUrl()" class="inline-flex items-center px-4 py-2 border border-l-0 border-green-300 rounded-r-md bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100">
-                  コピー
+                  ${get('common.copy')}
                 </button>
               </div>
             </div>
@@ -108,21 +108,35 @@ receive.get('/', async (c) => {
       <!-- 受信リンク一覧 -->
       <div class="bg-white rounded-lg shadow-sm border">
         <div class="px-6 py-4 border-b">
-          <h2 class="text-lg font-semibold text-gray-900">受信リンク一覧</h2>
+          <h2 class="text-lg font-semibold text-gray-900">${get('receive.myLinks')}</h2>
         </div>
         ${linksWithStats.length === 0 ? `
           <div class="px-6 py-12 text-center text-gray-500">
-            まだ受信リンクがありません
+            ${get('receive.noLinks')}
           </div>
         ` : `
           <div class="divide-y">
-            ${linksWithStats.map((link) => renderLinkItem(link, baseUrl)).join('')}
+            ${linksWithStats.map((link) => renderLinkItem(link, baseUrl, get)).join('')}
           </div>
         `}
       </div>
     </div>
 
     <script>
+      // i18n strings
+      const i18n = {
+        linkCreated: '${get('receive.linkCreated')}',
+        createFailed: '${get('receive.createFailed')}',
+        linkCopied: '${get('common.copied')}',
+        disableConfirm: '${get('receive.disableConfirm')}',
+        deleteLinkConfirm: '${get('receive.deleteLinkConfirm')}',
+        linkDisabled: '${get('receive.linkDisabled')}',
+        linkDeleted: '${get('receive.linkDeleted')}',
+        disableFailed: '${get('receive.disableFailed')}',
+        deleteFailed: '${get('receive.deleteFailed')}',
+        error: '${get('common.error')}',
+      };
+
       // リンク作成
       document.getElementById('create-link-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -148,16 +162,16 @@ receive.get('/', async (c) => {
           if (result.success) {
             document.getElementById('created-url').value = result.link.url;
             document.getElementById('create-result').classList.remove('hidden');
-            showToast('受信リンクを作成しました', 'success');
+            showToast(i18n.linkCreated, 'success');
             // フォームをリセット
             document.getElementById('create-link-form').reset();
             // 少し待ってからリロード
             setTimeout(() => location.reload(), 2000);
           } else {
-            showToast(result.error || '作成に失敗しました', 'error');
+            showToast(result.error || i18n.createFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       });
 
@@ -165,18 +179,18 @@ receive.get('/', async (c) => {
         const urlInput = document.getElementById('created-url');
         urlInput.select();
         document.execCommand('copy');
-        showToast('リンクをコピーしました', 'success');
+        showToast(i18n.linkCopied, 'success');
       }
 
       function copyUrl(token) {
         const url = '${baseUrl}/r/' + token;
         navigator.clipboard.writeText(url).then(() => {
-          showToast('リンクをコピーしました', 'success');
+          showToast(i18n.linkCopied, 'success');
         });
       }
 
       async function disableLink(linkId) {
-        if (!confirm('この受信リンクを無効化しますか？')) {
+        if (!confirm(i18n.disableConfirm)) {
           return;
         }
 
@@ -185,18 +199,18 @@ receive.get('/', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('リンクを無効化しました', 'success');
+            showToast(i18n.linkDisabled, 'success');
             location.reload();
           } else {
-            showToast(result.error || '無効化に失敗しました', 'error');
+            showToast(result.error || i18n.disableFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       }
 
       async function deleteLink(linkId) {
-        if (!confirm('この受信リンクとすべてのファイルを完全に削除しますか？この操作は取り消せません。')) {
+        if (!confirm(i18n.deleteLinkConfirm)) {
           return;
         }
 
@@ -205,13 +219,13 @@ receive.get('/', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('受信リンクを削除しました', 'success');
+            showToast(i18n.linkDeleted, 'success');
             location.reload();
           } else {
-            showToast(result.error || '削除に失敗しました', 'error');
+            showToast(result.error || i18n.deleteFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       }
     </script>
@@ -228,7 +242,7 @@ receive.get('/:id', async (c) => {
   const user = c.get('user');
   const userId = c.get('userId');
   const lang = c.get('lang') || 'ja';
-  // createTranslator is available if needed for future translations
+  const { get } = createTranslator(lang);
   const linkId = parseInt(c.req.param('id'), 10);
 
   if (isNaN(linkId)) {
@@ -245,14 +259,16 @@ receive.get('/:id', async (c) => {
   const baseUrl = new URL(c.req.url).origin;
   const isActive = !link.disabled_at && new Date(link.expires_at) > new Date();
 
+  const linkLabel = link.title ? escapeHtml(link.title) : `${get('receive.title')} #${link.id}`;
+
   const content = `
     <div class="space-y-6">
       <!-- パンくずリスト -->
       <nav class="text-sm">
         <ol class="flex items-center space-x-2">
-          <li><a href="/receive" class="text-gray-500 hover:text-gray-700">受信</a></li>
+          <li><a href="/receive" class="text-gray-500 hover:text-gray-700">${get('receive.pageTitle')}</a></li>
           <li class="text-gray-400">/</li>
-          <li class="text-gray-900 font-medium">${link.title ? escapeHtml(link.title) : `リンク #${link.id}`}</li>
+          <li class="text-gray-900 font-medium">${linkLabel}</li>
         </ol>
       </nav>
 
@@ -261,18 +277,18 @@ receive.get('/:id', async (c) => {
         <div class="flex items-start justify-between">
           <div>
             <div class="flex items-center space-x-3">
-              <h1 class="text-xl font-bold text-gray-900">${link.title ? escapeHtml(link.title) : `受信リンク #${link.id}`}</h1>
-              ${isActive ? badge({ text: '有効', variant: 'success' }) : badge({ text: '無効', variant: 'default' })}
+              <h1 class="text-xl font-bold text-gray-900">${linkLabel}</h1>
+              ${isActive ? badge({ text: get('receive.active'), variant: 'success' }) : badge({ text: get('receive.inactive'), variant: 'default' })}
             </div>
             <div class="mt-2 space-y-1 text-sm text-gray-500">
-              <p>作成日: ${localDateTime(link.created_at)}</p>
-              <p>有効期限: ${localDateTime(link.expires_at)}</p>
-              ${link.max_files ? `<p>最大ファイル数: ${link.max_files}</p>` : ''}
-              <p>受信ファイル数: ${files.length}</p>
+              <p>${get('receive.createdAt')}: ${localDateTime(link.created_at)}</p>
+              <p>${get('receive.expiresIn')}: ${localDateTime(link.expires_at)}</p>
+              ${link.max_files ? `<p>${get('receive.maxFiles')}: ${link.max_files}</p>` : ''}
+              <p>${get('receive.fileCount')}: ${files.length}</p>
             </div>
             ${isActive ? `
             <div class="mt-4">
-              <label class="block text-sm font-medium text-gray-700">受信用URL</label>
+              <label class="block text-sm font-medium text-gray-700">${get('receive.receiveUrl')}</label>
               <div class="mt-1 flex items-center space-x-2">
                 <code class="text-xs bg-gray-100 px-2 py-1 rounded flex-1">${baseUrl}/r/${link.token}</code>
                 <button type="button" onclick="copyUrl('${link.token}')" class="text-primary-500 hover:text-primary-600">
@@ -285,11 +301,11 @@ receive.get('/:id', async (c) => {
           <div class="flex flex-col space-y-2">
             ${isActive ? `
             <button type="button" onclick="disableLink(${link.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
-              無効化
+              ${get('receive.disable')}
             </button>
             ` : `
             <button type="button" onclick="deleteLink(${link.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
-              完全に削除
+              ${get('receive.deleteCompletely')}
             </button>
             `}
           </div>
@@ -299,21 +315,21 @@ receive.get('/:id', async (c) => {
       <!-- 受信ファイル一覧 -->
       <div class="bg-white rounded-lg shadow-sm border">
         <div class="px-6 py-4 border-b">
-          <h2 class="text-lg font-semibold text-gray-900">受信ファイル</h2>
+          <h2 class="text-lg font-semibold text-gray-900">${get('receive.receivedFiles')}</h2>
         </div>
         ${files.length === 0 ? `
           <div class="px-6 py-12 text-center text-gray-500">
-            まだファイルを受信していません
+            ${get('receive.noReceivedFiles')}
           </div>
         ` : `
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ファイル</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">送信者</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">受信日時</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状態</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">${get('receive.file')}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">${get('receive.sender')}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">${get('receive.receivedAt')}</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">${get('receive.status')}</th>
                   <th class="px-6 py-3"></th>
                 </tr>
               </thead>
@@ -344,16 +360,16 @@ receive.get('/:id', async (c) => {
                     </td>
                     <td class="px-6 py-4">
                       ${file.downloaded_at
-                        ? badge({ text: 'ダウンロード済み', variant: 'success' })
-                        : badge({ text: '未ダウンロード', variant: 'warning' })
+                        ? badge({ text: get('receive.downloaded'), variant: 'success' })
+                        : badge({ text: get('receive.notDownloaded'), variant: 'warning' })
                       }
                     </td>
                     <td class="px-6 py-4 text-right space-x-3">
                       <a href="/api/received-files/${file.id}/download" class="text-primary-500 hover:text-primary-600 font-medium text-sm">
-                        ダウンロード
+                        ${get('common.download')}
                       </a>
                       <button type="button" onclick="deleteFile(${file.id})" class="text-red-500 hover:text-red-600 font-medium text-sm">
-                        削除
+                        ${get('common.delete')}
                       </button>
                     </td>
                   </tr>
@@ -366,15 +382,29 @@ receive.get('/:id', async (c) => {
     </div>
 
     <script>
+      // i18n strings
+      const i18n = {
+        linkCopied: '${get('common.copied')}',
+        disableConfirm: '${get('receive.disableConfirm')}',
+        deleteFileConfirm: '${get('receive.deleteFileConfirm')}',
+        deleteLinkConfirm: '${get('receive.deleteLinkConfirm')}',
+        linkDisabled: '${get('receive.linkDisabled')}',
+        linkDeleted: '${get('receive.linkDeleted')}',
+        fileDeleted: '${get('receive.fileDeleted')}',
+        disableFailed: '${get('receive.disableFailed')}',
+        deleteFailed: '${get('receive.deleteFailed')}',
+        error: '${get('common.error')}',
+      };
+
       function copyUrl(token) {
         const url = '${baseUrl}/r/' + token;
         navigator.clipboard.writeText(url).then(() => {
-          showToast('リンクをコピーしました', 'success');
+          showToast(i18n.linkCopied, 'success');
         });
       }
 
       async function disableLink(linkId) {
-        if (!confirm('この受信リンクを無効化しますか？')) {
+        if (!confirm(i18n.disableConfirm)) {
           return;
         }
 
@@ -383,18 +413,18 @@ receive.get('/:id', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('リンクを無効化しました', 'success');
+            showToast(i18n.linkDisabled, 'success');
             location.reload();
           } else {
-            showToast(result.error || '無効化に失敗しました', 'error');
+            showToast(result.error || i18n.disableFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       }
 
       async function deleteFile(fileId) {
-        if (!confirm('このファイルを削除しますか？この操作は取り消せません。')) {
+        if (!confirm(i18n.deleteFileConfirm)) {
           return;
         }
 
@@ -403,18 +433,18 @@ receive.get('/:id', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('ファイルを削除しました', 'success');
+            showToast(i18n.fileDeleted, 'success');
             location.reload();
           } else {
-            showToast(result.error || '削除に失敗しました', 'error');
+            showToast(result.error || i18n.deleteFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       }
 
       async function deleteLink(linkId) {
-        if (!confirm('この受信リンクとすべてのファイルを完全に削除しますか？この操作は取り消せません。')) {
+        if (!confirm(i18n.deleteLinkConfirm)) {
           return;
         }
 
@@ -423,20 +453,19 @@ receive.get('/:id', async (c) => {
           const result = await res.json();
 
           if (result.success) {
-            showToast('受信リンクを削除しました', 'success');
+            showToast(i18n.linkDeleted, 'success');
             location.href = '/receive';
           } else {
-            showToast(result.error || '削除に失敗しました', 'error');
+            showToast(result.error || i18n.deleteFailed, 'error');
           }
         } catch (error) {
-          showToast('エラーが発生しました', 'error');
+          showToast(i18n.error, 'error');
         }
       }
     </script>
   `;
 
-  const detailTitle = lang === 'ja' ? '受信リンク詳細' : 'Receive Link Details';
-  return c.html(layout({ title: link.title || detailTitle, user, lang }, content));
+  return c.html(layout({ title: link.title || get('receive.linkDetails'), user, lang }, content));
 });
 
 /**
@@ -444,38 +473,40 @@ receive.get('/:id', async (c) => {
  */
 function renderLinkItem(
   link: ReceiveLink & { file_count: number; is_active: boolean },
-  _baseUrl: string
+  _baseUrl: string,
+  get: (key: string) => string
 ): string {
+  const linkLabel = link.title ? escapeHtml(link.title) : `${get('receive.title')} #${link.id}`;
   return `
     <div class="px-6 py-4">
       <div class="flex items-center justify-between">
         <div class="flex-1 min-w-0">
           <div class="flex items-center space-x-3">
             <a href="/receive/${link.id}" class="text-sm font-medium text-gray-900 hover:text-primary-500">
-              ${link.title ? escapeHtml(link.title) : `受信リンク #${link.id}`}
+              ${linkLabel}
             </a>
-            ${link.is_active ? badge({ text: '有効', variant: 'success' }) : badge({ text: '無効', variant: 'default' })}
-            ${link.password_hash ? badge({ text: 'パスワード', variant: 'info' }) : ''}
+            ${link.is_active ? badge({ text: get('receive.active'), variant: 'success' }) : badge({ text: get('receive.inactive'), variant: 'default' })}
+            ${link.password_hash ? badge({ text: get('receive.password'), variant: 'info' }) : ''}
           </div>
           <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500">
-            <span>受信: ${link.file_count}件</span>
+            <span>${get('receive.received')}: ${link.file_count}${get('receive.receivedCount')}</span>
             <span>•</span>
-            <span>期限: ${localDateTime(link.expires_at)}</span>
+            <span>${get('receive.expires')}: ${localDateTime(link.expires_at)}</span>
           </div>
         </div>
         <div class="flex items-center space-x-2 ml-4">
-          <a href="/receive/${link.id}" class="text-gray-500 hover:text-gray-700 p-2" title="詳細">
+          <a href="/receive/${link.id}" class="text-gray-500 hover:text-gray-700 p-2" title="${get('files.viewLinks')}">
             ${icons.eye}
           </a>
           ${link.is_active ? `
-            <button type="button" onclick="copyUrl('${link.token}')" class="text-gray-500 hover:text-gray-700 p-2" title="コピー">
+            <button type="button" onclick="copyUrl('${link.token}')" class="text-gray-500 hover:text-gray-700 p-2" title="${get('common.copy')}">
               ${icons.copy}
             </button>
-            <button type="button" onclick="disableLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="無効化">
+            <button type="button" onclick="disableLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="${get('receive.disable')}">
               ${icons.trash}
             </button>
           ` : `
-            <button type="button" onclick="deleteLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="完全に削除">
+            <button type="button" onclick="deleteLink(${link.id})" class="text-red-500 hover:text-red-700 p-2" title="${get('receive.deleteCompletely')}">
               ${icons.trash}
             </button>
           `}
