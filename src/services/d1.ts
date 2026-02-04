@@ -1,0 +1,545 @@
+/**
+ * D1データベースサービス
+ * ユーザー、ファイル、リンク、ログの CRUD 操作を担当
+ */
+
+import type {
+  User,
+  FileRecord,
+  DownloadLink,
+  LinkRecipient,
+  DownloadLog,
+  DownloadStats,
+} from '../types';
+
+// =====================================================
+// ユーザー関連
+// =====================================================
+
+/**
+ * メールアドレスでユーザーを検索（なければ作成）
+ */
+export async function findOrCreateUser(
+  db: D1Database,
+  email: string,
+  name?: string
+): Promise<User> {
+  // 既存ユーザーを検索
+  const existing = await db
+    .prepare('SELECT * FROM users WHERE email = ?')
+    .bind(email)
+    .first<User>();
+
+  if (existing) {
+    return existing;
+  }
+
+  // 新規ユーザーを作成
+  const result = await db
+    .prepare('INSERT INTO users (email, name) VALUES (?, ?) RETURNING *')
+    .bind(email, name || null)
+    .first<User>();
+
+  if (!result) {
+    throw new Error('ユーザーの作成に失敗しました');
+  }
+
+  return result;
+}
+
+/**
+ * ユーザーIDでユーザーを取得
+ */
+export async function getUserById(
+  db: D1Database,
+  id: number
+): Promise<User | null> {
+  return await db
+    .prepare('SELECT * FROM users WHERE id = ?')
+    .bind(id)
+    .first<User>();
+}
+
+// =====================================================
+// ファイル関連
+// =====================================================
+
+/**
+ * ファイルレコードを作成
+ */
+export async function createFile(
+  db: D1Database,
+  userId: number,
+  r2Key: string,
+  originalName: string,
+  size: number,
+  mimeType: string
+): Promise<FileRecord> {
+  const result = await db
+    .prepare(
+      `INSERT INTO files (user_id, r2_key, original_name, size, mime_type)
+       VALUES (?, ?, ?, ?, ?)
+       RETURNING *`
+    )
+    .bind(userId, r2Key, originalName, size, mimeType)
+    .first<FileRecord>();
+
+  if (!result) {
+    throw new Error('ファイルレコードの作成に失敗しました');
+  }
+
+  return result;
+}
+
+/**
+ * ユーザーのファイル一覧を取得
+ */
+export async function getFilesByUser(
+  db: D1Database,
+  userId: number,
+  includeDeleted = false
+): Promise<FileRecord[]> {
+  const query = includeDeleted
+    ? 'SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC'
+    : 'SELECT * FROM files WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC';
+
+  const result = await db.prepare(query).bind(userId).all<FileRecord>();
+
+  return result.results;
+}
+
+/**
+ * ファイルIDでファイルを取得
+ */
+export async function getFileById(
+  db: D1Database,
+  fileId: number
+): Promise<FileRecord | null> {
+  return await db
+    .prepare('SELECT * FROM files WHERE id = ? AND deleted_at IS NULL')
+    .bind(fileId)
+    .first<FileRecord>();
+}
+
+/**
+ * ファイルを論理削除
+ */
+export async function softDeleteFile(
+  db: D1Database,
+  fileId: number,
+  userId: number
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE files
+       SET deleted_at = datetime('now')
+       WHERE id = ? AND user_id = ? AND deleted_at IS NULL`
+    )
+    .bind(fileId, userId)
+    .run();
+
+  return result.meta.changes > 0;
+}
+
+// =====================================================
+// ダウンロードリンク関連
+// =====================================================
+
+/**
+ * 推測困難なトークンを生成（64文字）
+ */
+export function generateSecureToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * ダウンロードリンクを作成
+ */
+export async function createDownloadLink(
+  db: D1Database,
+  fileId: number,
+  createdBy: number,
+  expiresDays: number,
+  passwordHash?: string,
+  maxDownloads?: number
+): Promise<DownloadLink> {
+  const token = generateSecureToken();
+
+  // 有効期限を計算（1-10日に制限）
+  const days = Math.min(Math.max(expiresDays, 1), 10);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+
+  const result = await db
+    .prepare(
+      `INSERT INTO download_links
+       (file_id, token, expires_at, password_hash, max_downloads, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)
+       RETURNING *`
+    )
+    .bind(
+      fileId,
+      token,
+      expiresAt.toISOString(),
+      passwordHash || null,
+      maxDownloads || null,
+      createdBy
+    )
+    .first<DownloadLink>();
+
+  if (!result) {
+    throw new Error('ダウンロードリンクの作成に失敗しました');
+  }
+
+  return result;
+}
+
+/**
+ * トークンでダウンロードリンクを取得（有効なもののみ）
+ */
+export async function getValidLinkByToken(
+  db: D1Database,
+  token: string
+): Promise<(DownloadLink & { file: FileRecord }) | null> {
+  const link = await db
+    .prepare(
+      `SELECT dl.*, f.id as file_id, f.user_id, f.r2_key, f.original_name,
+              f.size, f.mime_type, f.created_at as file_created_at
+       FROM download_links dl
+       JOIN files f ON dl.file_id = f.id
+       WHERE dl.token = ?
+         AND dl.disabled_at IS NULL
+         AND dl.expires_at > datetime('now')
+         AND f.deleted_at IS NULL
+         AND (dl.max_downloads IS NULL OR dl.download_count < dl.max_downloads)`
+    )
+    .bind(token)
+    .first<DownloadLink & {
+      file_id: number;
+      user_id: number;
+      r2_key: string;
+      original_name: string;
+      size: number;
+      mime_type: string;
+      file_created_at: string;
+    }>();
+
+  if (!link) {
+    return null;
+  }
+
+  // ファイル情報を構造化
+  const file: FileRecord = {
+    id: link.file_id,
+    user_id: link.user_id,
+    r2_key: link.r2_key,
+    original_name: link.original_name,
+    size: link.size,
+    mime_type: link.mime_type,
+    created_at: link.file_created_at,
+    deleted_at: null,
+  };
+
+  return { ...link, file };
+}
+
+/**
+ * ファイルのダウンロードリンク一覧を取得
+ */
+export async function getLinksByFile(
+  db: D1Database,
+  fileId: number
+): Promise<DownloadLink[]> {
+  const result = await db
+    .prepare(
+      'SELECT * FROM download_links WHERE file_id = ? ORDER BY created_at DESC'
+    )
+    .bind(fileId)
+    .all<DownloadLink>();
+
+  return result.results;
+}
+
+/**
+ * リンクIDでダウンロードリンクを取得
+ */
+export async function getLinkById(
+  db: D1Database,
+  linkId: number
+): Promise<DownloadLink | null> {
+  return await db
+    .prepare('SELECT * FROM download_links WHERE id = ?')
+    .bind(linkId)
+    .first<DownloadLink>();
+}
+
+/**
+ * ダウンロードリンクを無効化
+ */
+export async function disableLink(
+  db: D1Database,
+  linkId: number,
+  userId: number
+): Promise<boolean> {
+  // リンクが指定ユーザーのファイルに属しているか確認
+  const result = await db
+    .prepare(
+      `UPDATE download_links
+       SET disabled_at = datetime('now')
+       WHERE id = ?
+         AND disabled_at IS NULL
+         AND file_id IN (SELECT id FROM files WHERE user_id = ?)`
+    )
+    .bind(linkId, userId)
+    .run();
+
+  return result.meta.changes > 0;
+}
+
+/**
+ * ダウンロード回数をインクリメント
+ */
+export async function incrementDownloadCount(
+  db: D1Database,
+  linkId: number
+): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE download_links SET download_count = download_count + 1 WHERE id = ?'
+    )
+    .bind(linkId)
+    .run();
+}
+
+// =====================================================
+// リンク送信先関連
+// =====================================================
+
+/**
+ * 送信先を記録
+ */
+export async function addLinkRecipients(
+  db: D1Database,
+  linkId: number,
+  emails: string[]
+): Promise<void> {
+  const stmt = db.prepare(
+    'INSERT INTO link_recipients (link_id, email) VALUES (?, ?)'
+  );
+
+  await db.batch(emails.map((email) => stmt.bind(linkId, email)));
+}
+
+/**
+ * リンクの送信先一覧を取得
+ */
+export async function getRecipientsByLink(
+  db: D1Database,
+  linkId: number
+): Promise<LinkRecipient[]> {
+  const result = await db
+    .prepare('SELECT * FROM link_recipients WHERE link_id = ? ORDER BY sent_at')
+    .bind(linkId)
+    .all<LinkRecipient>();
+
+  return result.results;
+}
+
+// =====================================================
+// ダウンロード履歴関連
+// =====================================================
+
+/**
+ * ダウンロード履歴を記録
+ */
+export async function logDownload(
+  db: D1Database,
+  linkId: number,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO download_logs (link_id, ip_address, user_agent) VALUES (?, ?, ?)'
+    )
+    .bind(linkId, ipAddress || null, userAgent || null)
+    .run();
+}
+
+/**
+ * リンクのダウンロード履歴を取得
+ */
+export async function getDownloadLogs(
+  db: D1Database,
+  linkId: number,
+  limit = 100
+): Promise<DownloadLog[]> {
+  const result = await db
+    .prepare(
+      'SELECT * FROM download_logs WHERE link_id = ? ORDER BY downloaded_at DESC LIMIT ?'
+    )
+    .bind(linkId, limit)
+    .all<DownloadLog>();
+
+  return result.results;
+}
+
+/**
+ * リンクのダウンロード統計を取得
+ */
+export async function getDownloadStats(
+  db: D1Database,
+  linkId: number
+): Promise<DownloadStats> {
+  // 基本統計
+  const stats = await db
+    .prepare(
+      `SELECT
+         COUNT(*) as total_downloads,
+         COUNT(DISTINCT ip_address) as unique_ips
+       FROM download_logs
+       WHERE link_id = ?`
+    )
+    .bind(linkId)
+    .first<{ total_downloads: number; unique_ips: number }>();
+
+  // 最近のログ
+  const recentLogs = await getDownloadLogs(db, linkId, 10);
+
+  // 送信先
+  const recipients = await getRecipientsByLink(db, linkId);
+
+  return {
+    link_id: linkId,
+    total_downloads: stats?.total_downloads || 0,
+    unique_ips: stats?.unique_ips || 0,
+    recent_logs: recentLogs,
+    recipients,
+  };
+}
+
+// =====================================================
+// ダッシュボード用統計
+// =====================================================
+
+/**
+ * ユーザーの統計情報を取得
+ */
+export async function getUserStats(
+  db: D1Database,
+  userId: number
+): Promise<{
+  total_files: number;
+  total_size: number;
+  active_links: number;
+  total_downloads: number;
+}> {
+  const stats = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM files WHERE user_id = ? AND deleted_at IS NULL) as total_files,
+         (SELECT COALESCE(SUM(size), 0) FROM files WHERE user_id = ? AND deleted_at IS NULL) as total_size,
+         (SELECT COUNT(*) FROM download_links dl
+          JOIN files f ON dl.file_id = f.id
+          WHERE f.user_id = ? AND dl.disabled_at IS NULL AND dl.expires_at > datetime('now')) as active_links,
+         (SELECT COALESCE(SUM(dl.download_count), 0) FROM download_links dl
+          JOIN files f ON dl.file_id = f.id
+          WHERE f.user_id = ?) as total_downloads`
+    )
+    .bind(userId, userId, userId, userId)
+    .first<{
+      total_files: number;
+      total_size: number;
+      active_links: number;
+      total_downloads: number;
+    }>();
+
+  return {
+    total_files: stats?.total_files || 0,
+    total_size: stats?.total_size || 0,
+    active_links: stats?.active_links || 0,
+    total_downloads: stats?.total_downloads || 0,
+  };
+}
+
+/**
+ * 最近のアクティビティを取得
+ */
+export async function getRecentActivity(
+  db: D1Database,
+  userId: number,
+  limit = 10
+): Promise<
+  Array<{
+    type: 'upload' | 'download' | 'link_created';
+    file_name: string;
+    created_at: string;
+    details?: string;
+  }>
+> {
+  // 最近のアップロード
+  const uploads = await db
+    .prepare(
+      `SELECT 'upload' as type, original_name as file_name, created_at, NULL as details
+       FROM files
+       WHERE user_id = ? AND deleted_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT ?`
+    )
+    .bind(userId, limit)
+    .all<{
+      type: 'upload';
+      file_name: string;
+      created_at: string;
+      details: null;
+    }>();
+
+  // 最近のダウンロード
+  const downloads = await db
+    .prepare(
+      `SELECT 'download' as type, f.original_name as file_name,
+              dl_log.downloaded_at as created_at, dl_log.ip_address as details
+       FROM download_logs dl_log
+       JOIN download_links dl ON dl_log.link_id = dl.id
+       JOIN files f ON dl.file_id = f.id
+       WHERE f.user_id = ?
+       ORDER BY dl_log.downloaded_at DESC
+       LIMIT ?`
+    )
+    .bind(userId, limit)
+    .all<{
+      type: 'download';
+      file_name: string;
+      created_at: string;
+      details: string | null;
+    }>();
+
+  // マージしてソート
+  const activities: Array<{
+    type: 'upload' | 'download' | 'link_created';
+    file_name: string;
+    created_at: string;
+    details?: string;
+  }> = [
+    ...uploads.results.map((u) => ({
+      type: 'upload' as const,
+      file_name: u.file_name,
+      created_at: u.created_at,
+      details: undefined,
+    })),
+    ...downloads.results.map((d) => ({
+      type: 'download' as const,
+      file_name: d.file_name,
+      created_at: d.created_at,
+      details: d.details || undefined,
+    })),
+  ];
+
+  activities.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return activities.slice(0, limit);
+}

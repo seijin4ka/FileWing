@@ -1,0 +1,218 @@
+/**
+ * メール送信サービス
+ * Resend APIを使用してダウンロードリンクを送信
+ */
+
+export interface EmailOptions {
+  /** Resend APIキー */
+  apiKey: string;
+  /** 送信先メールアドレス */
+  to: string[];
+  /** 送信者情報 */
+  from: {
+    name: string;
+    email: string;
+  };
+  /** 件名 */
+  subject: string;
+  /** 本文（HTML） */
+  html: string;
+  /** 本文（プレーンテキスト） */
+  text?: string;
+}
+
+export interface SendResult {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Resend APIでメールを送信
+ */
+export async function sendEmail(options: EmailOptions): Promise<SendResult> {
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${options.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: `${options.from.name} <${options.from.email}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      return {
+        success: false,
+        error: `メール送信に失敗しました: ${error}`,
+      };
+    }
+
+    const data = await response.json<{ id: string }>();
+    return {
+      success: true,
+      messageId: data.id,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `メール送信エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
+    };
+  }
+}
+
+/**
+ * ダウンロードリンク通知メールのHTMLを生成
+ */
+export function generateDownloadNotificationHtml(params: {
+  senderName: string;
+  fileName: string;
+  fileSize: string;
+  downloadUrl: string;
+  expiresAt: string;
+  customMessage?: string;
+}): string {
+  const { senderName, fileName, fileSize, downloadUrl, expiresAt, customMessage } =
+    params;
+
+  return `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">ファイルが届いています</h1>
+  </div>
+
+  <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
+    <p style="margin-top: 0;">${senderName} さんからファイルが届きました。</p>
+
+    ${customMessage ? `<div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0;"><p style="margin: 0; font-style: italic;">${escapeHtml(customMessage)}</p></div>` : ''}
+
+    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; color: #6c757d; width: 100px;">ファイル名</td>
+          <td style="padding: 8px 0; font-weight: bold;">${escapeHtml(fileName)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6c757d;">サイズ</td>
+          <td style="padding: 8px 0;">${fileSize}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #6c757d;">有効期限</td>
+          <td style="padding: 8px 0;">${expiresAt}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${downloadUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ダウンロードする</a>
+    </div>
+
+    <p style="font-size: 12px; color: #6c757d; margin-bottom: 0;">
+      このリンクは ${expiresAt} まで有効です。<br>
+      心当たりのない場合は、このメールを無視してください。
+    </p>
+  </div>
+
+  <div style="padding: 20px; text-align: center; font-size: 12px; color: #6c757d;">
+    <p style="margin: 0;">このメールは自動送信されています。</p>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * プレーンテキスト版のメール本文を生成
+ */
+export function generateDownloadNotificationText(params: {
+  senderName: string;
+  fileName: string;
+  fileSize: string;
+  downloadUrl: string;
+  expiresAt: string;
+  customMessage?: string;
+}): string {
+  const { senderName, fileName, fileSize, downloadUrl, expiresAt, customMessage } =
+    params;
+
+  let text = `${senderName} さんからファイルが届きました。
+
+`;
+
+  if (customMessage) {
+    text += `メッセージ:
+${customMessage}
+
+`;
+  }
+
+  text += `ファイル情報:
+- ファイル名: ${fileName}
+- サイズ: ${fileSize}
+- 有効期限: ${expiresAt}
+
+ダウンロードURL:
+${downloadUrl}
+
+このリンクは ${expiresAt} まで有効です。
+心当たりのない場合は、このメールを無視してください。
+`;
+
+  return text;
+}
+
+/**
+ * HTMLエスケープ
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * ファイルサイズを人間が読みやすい形式にフォーマット
+ */
+export function formatFileSize(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let unitIndex = 0;
+  let size = bytes;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+}
+
+/**
+ * 日時を日本語形式でフォーマット
+ */
+export function formatDateTime(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Tokyo',
+  });
+}

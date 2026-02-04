@@ -1,0 +1,28 @@
+# 依存関係
+node_modules/
+
+# Wranglerローカルデータ
+.wrangler/
+
+# ビルド出力
+dist/
+
+# 環境変数（機密情報）
+.env
+.env.local
+.env.*.local
+.dev.vars
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# エディタ
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ログ
+*.log
+npm-debug.log*

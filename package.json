@@ -1,0 +1,21 @@
+{
+  "name": "cloudflare-worker-uploader",
+  "version": "1.0.0",
+  "description": "法人向けファイルアップローダー - 脱PPAP対応",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply file-uploader-db --local",
+    "db:migrate:prod": "wrangler d1 migrations apply file-uploader-db",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240419.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.53.0"
+  }
+}

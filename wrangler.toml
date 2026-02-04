@@ -1,0 +1,31 @@
+name = "file-uploader"
+main = "src/index.ts"
+compatibility_date = "2024-04-01"
+
+# 開発環境では認証をスキップ
+[vars]
+SKIP_AUTH = "true"
+
+# 本番環境設定
+[env.production]
+vars = { SKIP_AUTH = "false" }
+
+# R2バケット
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "file-uploader-bucket"
+preview_bucket_name = "file-uploader-bucket-preview"
+
+# D1データベース
+[[d1_databases]]
+binding = "DB"
+database_name = "file-uploader-db"
+database_id = "YOUR_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Resend APIキー（本番環境でシークレットとして設定）
+# wrangler secret put RESEND_API_KEY
+
+# Cloudflare Access設定（本番環境で設定）
+# ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
+# ACCESS_AUD: アプリケーションのAUD値
