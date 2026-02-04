@@ -1,4 +1,4 @@
-# 法人向けファイルアップローダー
+# FileWing - セキュアファイル共有
 
 脱PPAP対応のセキュアなファイル共有システム。Cloudflare Workers + R2 + D1 でサーバーレス構築。
 
@@ -9,7 +9,7 @@
 - **ダウンロード追跡**: IP、日時、ユーザーエージェントを記録
 - **CSVエクスポート**: 送受信履歴をCSV形式でエクスポート
 - **多言語対応**: 日本語/英語切り替え
-- **メール通知**: ダウンロードリンクをメールで送信（Resend API）
+- **メール通知**: ダウンロードリンクをメールで送信（Cloudflare Email Sending）
 - **自動クリーンアップ**: 期限切れファイルをR2から自動削除
 - **サーバーレス**: Cloudflare Workersで高速・低コスト運用
 - **認証連携**: Cloudflare Access（Google/Microsoft/SAML対応）
@@ -55,10 +55,10 @@ http://localhost:8787 でアクセス。開発環境では認証がスキップ�
 
 ```bash
 # D1データベース作成
-wrangler d1 create file-uploader-db
+wrangler d1 create filewing-db
 
 # R2バケット作成
-wrangler r2 bucket create file-uploader-bucket
+wrangler r2 bucket create filewing-bucket
 ```
 
 #### 2. wrangler.toml更新
@@ -68,12 +68,11 @@ wrangler r2 bucket create file-uploader-bucket
 database_id = "実際のデータベースID"
 ```
 
-#### 3. シークレット設定
+#### 3. Email Routing設定
 
-```bash
-# Resend APIキー（メール送信用）
-wrangler secret put RESEND_API_KEY
-```
+Cloudflareダッシュボードで:
+1. Email → Email Routing を有効化
+2. 送信元ドメインを検証
 
 #### 4. DBマイグレーション
 
@@ -161,7 +160,9 @@ Cloudflareダッシュボードで:
 | GET | `/api/receive-links` | 受信リンク一覧 |
 | GET | `/api/receive-links/:id` | 受信リンク詳細 |
 | DELETE | `/api/receive-links/:id` | 受信リンク無効化 |
+| DELETE | `/api/receive-links/:id/full` | 受信リンク完全削除 |
 | GET | `/api/received-files/:id/download` | 受信ファイルダウンロード |
+| DELETE | `/api/received-files/:id` | 受信ファイル削除 |
 
 #### CSVエクスポート
 | メソッド | パス | 説明 |
@@ -182,7 +183,7 @@ Cloudflareダッシュボードで:
 ## プロジェクト構造
 
 ```
-cloudflare-worker-uploader/
+filewing/
 ├── src/
 │   ├── index.ts              # エントリーポイント
 │   ├── scheduled.ts          # 定期クリーンアップ
@@ -230,10 +231,10 @@ cloudflare-worker-uploader/
 
 - **ランタイム**: Cloudflare Workers
 - **フレームワーク**: [Hono](https://hono.dev/) v4
-- **ストレージ**: Cloudflare R2
+- **ストレージ**: Cloudflare R2（容量無制限）
 - **データベース**: Cloudflare D1
 - **認証**: Cloudflare Access
-- **メール**: [Resend](https://resend.com/)
+- **メール**: Cloudflare Email Sending
 - **UI**: Tailwind CSS
 
 ## ライセンス

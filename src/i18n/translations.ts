@@ -8,7 +8,7 @@ export const translations = {
   ja: {
     // 共通
     common: {
-      appName: 'ファイル共有システム',
+      appName: 'FileWing',
       loading: '読み込み中...',
       error: 'エラーが発生しました',
       success: '成功しました',
@@ -201,7 +201,7 @@ export const translations = {
   en: {
     // Common
     common: {
-      appName: 'File Sharing System',
+      appName: 'FileWing',
       loading: 'Loading...',
       error: 'An error occurred',
       success: 'Success',

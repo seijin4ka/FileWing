@@ -4,16 +4,16 @@
 
 ## プロジェクト概要
 
-法人向けファイルアップローダー（脱PPAP対応）。Cloudflare Workers + Hono + R2 + D1 でサーバーレス構築。
+**FileWing** - 脱PPAP対応のセキュアなファイル共有システム。Cloudflare Workers + Hono + R2 + D1 でサーバーレス構築。
 
 ## 技術スタック
 
 - **ランタイム**: Cloudflare Workers
 - **フレームワーク**: Hono v4
-- **ストレージ**: Cloudflare R2
+- **ストレージ**: Cloudflare R2（容量無制限）
 - **データベース**: Cloudflare D1 (SQLite)
 - **認証**: Cloudflare Access (JWT)
-- **メール**: Resend API
+- **メール**: Cloudflare Email Sending
 - **UI**: Tailwind CSS (CDN)
 - **多言語対応**: 日本語/英語
 
@@ -52,7 +52,7 @@ src/
 ├── services/
 │   ├── r2.ts             # R2ストレージ操作
 │   ├── d1.ts             # D1データベース操作
-│   ├── email.ts          # Resendメール送信
+│   ├── email.ts          # Cloudflare Email Sending
 │   ├── costs.ts          # コスト見積もり計算
 │   └── ratelimit.ts      # レート制限（ブルートフォース対策）
 ├── utils/
@@ -81,7 +81,7 @@ src/
 ## 主要機能
 
 ### 送信機能
-- ファイルアップロード（ドラッグ&ドロップ対応）
+- ファイルアップロード（ドラッグ&ドロップ対応、容量無制限）
 - ダウンロードリンク生成（有効期限1-10日）
 - オプション: パスワード保護、ダウンロード回数制限
 - メール通知
@@ -89,7 +89,7 @@ src/
 ### 受信機能
 - 受信リンク発行（ゲストからファイルを受け取る）
 - オプション: パスワード保護、最大ファイル数/サイズ制限
-- 受信ファイル一覧・ダウンロード
+- 受信ファイル一覧・ダウンロード・削除
 
 ### CSVエクスポート
 - ファイル一覧エクスポート (`/api/export/files`)
@@ -183,9 +183,15 @@ src/
 | 変数名 | 説明 | 設定方法 |
 |-------|------|---------|
 | `SKIP_AUTH` | 認証スキップ（開発用） | wrangler.toml |
-| `RESEND_API_KEY` | Resend APIキー | `wrangler secret put` |
 | `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 | wrangler.toml |
 | `ACCESS_AUD` | Cloudflare Access AUD | wrangler.toml |
+
+## Email Sending設定
+
+Cloudflare Email Routing を使用:
+1. Cloudflareダッシュボードで Email Routing を有効化
+2. 送信元ドメインを検証
+3. wrangler.toml に `[[send_email]]` バインディングを設定
 
 ## Cron Trigger設定
 

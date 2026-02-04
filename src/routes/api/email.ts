@@ -118,7 +118,7 @@ email.post('/links/:id/send', async (c) => {
       c.env.EMAIL,
       body.recipients,
       fromEmail,
-      'ファイル共有システム',
+      'FileWing',
       `${senderName} さんからファイルが届いています: ${file.original_name}`,
       html,
       text

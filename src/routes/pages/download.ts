@@ -154,7 +154,7 @@ download.get('/:token', async (c) => {
 
           <!-- フッター -->
           <div class="bg-gray-50 px-6 py-4 text-center text-xs text-gray-500">
-            セキュアなファイル共有システム
+            FileWing - Secure File Sharing
           </div>
         </div>
       </div>
