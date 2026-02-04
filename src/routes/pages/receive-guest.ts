@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../../types';
-import { layout, formatDateTime, escapeHtml } from '../../templates/layout';
+import { layout, localDateTime, escapeHtml } from '../../templates/layout';
 import {
   getValidReceiveLinkByToken,
   getReceivedFileCount,
@@ -172,7 +172,7 @@ receiveGuest.get('/:token', async (c) => {
           <!-- メタ情報 -->
           <div class="bg-gray-50 px-6 py-4 text-xs text-gray-500">
             <div class="flex items-center justify-between">
-              <span>有効期限: ${formatDateTime(link.expires_at)}</span>
+              <span>有効期限: ${localDateTime(link.expires_at)}</span>
               ${link.max_files ? `<span>残り: ${link.max_files - currentFileCount}件</span>` : ''}
             </div>
           </div>

@@ -157,7 +157,7 @@ export function layout(options: LayoutOptions, content: string): string {
       return bytes.toFixed(i > 0 ? 1 : 0) + ' ' + units[i];
     }
 
-    // 日時をフォーマット
+    // 日時をフォーマット（レガシー、クライアントサイド用）
     function formatDate(isoString) {
       const date = new Date(isoString);
       return date.toLocaleString('ja-JP', {
@@ -168,6 +168,83 @@ export function layout(options: LayoutOptions, content: string): string {
         minute: '2-digit'
       });
     }
+
+    // ローカル時刻表示（言語に応じたタイムゾーン）
+    // 日本語: JST (GMT+9), 英語: UTC (GMT)
+    (function() {
+      function formatLocalTime(isoString, locale) {
+        const date = new Date(isoString);
+        const timeZone = locale === 'ja' ? 'Asia/Tokyo' : 'UTC';
+        const options = {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+          timeZone: timeZone
+        };
+        const formatted = new Intl.DateTimeFormat(locale, options).format(date);
+        return locale === 'ja' ? formatted : formatted + ' UTC';
+      }
+
+      function formatRelativeTime(isoString, locale) {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (locale === 'ja') {
+          if (diffMins < 1) return 'たった今';
+          if (diffMins < 60) return diffMins + '分前';
+          if (diffHours < 24) return diffHours + '時間前';
+          if (diffDays < 7) return diffDays + '日前';
+          return diffDays + '日前';
+        } else {
+          if (diffMins < 1) return 'just now';
+          if (diffMins < 60) return diffMins + ' min ago';
+          if (diffHours < 24) return diffHours + ' hours ago';
+          if (diffDays < 7) return diffDays + ' days ago';
+          return diffDays + ' days ago';
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        const locale = document.documentElement.lang || 'ja';
+
+        // .local-time クラスの要素を変換（秒まで表示、相対時間をツールチップ）
+        document.querySelectorAll('.local-time').forEach(function(el) {
+          const isoString = el.getAttribute('datetime');
+          if (isoString) {
+            el.textContent = formatLocalTime(isoString, locale);
+            el.title = formatRelativeTime(isoString, locale);
+          }
+        });
+
+        // .local-datetime クラスの要素を変換（秒なし、シンプル表示）
+        document.querySelectorAll('.local-datetime').forEach(function(el) {
+          const isoString = el.getAttribute('datetime');
+          if (isoString) {
+            const date = new Date(isoString);
+            const timeZone = locale === 'ja' ? 'Asia/Tokyo' : 'UTC';
+            const options = {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: timeZone
+            };
+            const formatted = new Intl.DateTimeFormat(locale, options).format(date);
+            el.textContent = locale === 'ja' ? formatted : formatted + ' UTC';
+          }
+        });
+      });
+    })();
   </script>
 </body>
 </html>`;
@@ -263,7 +340,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * 日時をフォーマット（日本語）
+ * 日時をフォーマット（日本語）- レガシー用
  */
 export function formatDateTime(isoString: string): string {
   const date = new Date(isoString);
@@ -275,6 +352,38 @@ export function formatDateTime(isoString: string): string {
     minute: '2-digit',
     timeZone: 'Asia/Tokyo',
   });
+}
+
+/**
+ * DB日時文字列をISO 8601形式（UTC）に変換
+ * "2026-02-04 03:03:09" -> "2026-02-04T03:03:09Z"
+ */
+export function toISOString(dbDateTime: string): string {
+  // 既にISO形式の場合はそのまま返す
+  if (dbDateTime.includes('T')) {
+    return dbDateTime.endsWith('Z') ? dbDateTime : dbDateTime + 'Z';
+  }
+  return dbDateTime.replace(' ', 'T') + 'Z';
+}
+
+/**
+ * ローカル時刻表示用の<time>要素を生成（秒まで表示、相対時間ツールチップ）
+ * クライアントサイドでブラウザのタイムゾーンに変換される
+ */
+export function localTime(dbDateTime: string, className: string = ''): string {
+  const iso = toISOString(dbDateTime);
+  const classes = `local-time ${className}`.trim();
+  return `<time class="${classes}" datetime="${iso}"></time>`;
+}
+
+/**
+ * ローカル日時表示用の<time>要素を生成（秒なし、シンプル表示）
+ * クライアントサイドでブラウザのタイムゾーンに変換される
+ */
+export function localDateTime(dbDateTime: string, className: string = ''): string {
+  const iso = toISOString(dbDateTime);
+  const classes = `local-datetime ${className}`.trim();
+  return `<time class="${classes}" datetime="${iso}"></time>`;
 }
 
 /**
