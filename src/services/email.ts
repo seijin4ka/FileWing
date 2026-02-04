@@ -1,18 +1,20 @@
 /**
  * メール送信サービス
- * Resend APIを使用してダウンロードリンクを送信
+ * Cloudflare Workers Email Sending（Email Routing統合）を使用
  */
 
+import { createMimeMessage } from 'mimetext';
+import type { SendEmailBinding } from '../types';
+
 export interface EmailOptions {
-  /** Resend APIキー */
-  apiKey: string;
+  /** Email Sendingバインディング */
+  emailBinding: SendEmailBinding;
   /** 送信先メールアドレス */
-  to: string[];
-  /** 送信者情報 */
-  from: {
-    name: string;
-    email: string;
-  };
+  to: string;
+  /** 送信元メールアドレス */
+  from: string;
+  /** 送信者名 */
+  fromName: string;
   /** 件名 */
   subject: string;
   /** 本文（HTML） */
@@ -23,49 +25,85 @@ export interface EmailOptions {
 
 export interface SendResult {
   success: boolean;
-  messageId?: string;
   error?: string;
 }
 
 /**
- * Resend APIでメールを送信
+ * Cloudflare Email Sendingでメールを送信
  */
 export async function sendEmail(options: EmailOptions): Promise<SendResult> {
   try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${options.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `${options.from.name} <${options.from.email}>`,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-        text: options.text,
-      }),
+    // MIMEメッセージを作成
+    const msg = createMimeMessage();
+    msg.setSender({ name: options.fromName, addr: options.from });
+    msg.setRecipient(options.to);
+    msg.setSubject(options.subject);
+
+    // HTML本文を追加
+    msg.addMessage({
+      contentType: 'text/html',
+      data: options.html,
     });
 
-    if (!response.ok) {
-      const error = await response.text();
-      return {
-        success: false,
-        error: `メール送信に失敗しました: ${error}`,
-      };
+    // プレーンテキスト本文を追加（オプション）
+    if (options.text) {
+      msg.addMessage({
+        contentType: 'text/plain',
+        data: options.text,
+      });
     }
 
-    const data = await response.json<{ id: string }>();
-    return {
-      success: true,
-      messageId: data.id,
-    };
+    // EmailMessageを作成して送信
+    // cloudflare:emailからのインポートは実行時に解決される
+    const { EmailMessage } = await import('cloudflare:email');
+    const emailMessage = new EmailMessage(options.from, options.to, msg.asRaw());
+
+    await options.emailBinding.send(emailMessage);
+
+    return { success: true };
   } catch (error) {
+    console.error('メール送信エラー:', error);
     return {
       success: false,
       error: `メール送信エラー: ${error instanceof Error ? error.message : '不明なエラー'}`,
     };
   }
+}
+
+/**
+ * 複数の宛先にメールを送信
+ */
+export async function sendEmailToMultiple(
+  emailBinding: SendEmailBinding,
+  recipients: string[],
+  from: string,
+  fromName: string,
+  subject: string,
+  html: string,
+  text?: string
+): Promise<{ success: boolean; errors: string[] }> {
+  const errors: string[] = [];
+
+  for (const to of recipients) {
+    const result = await sendEmail({
+      emailBinding,
+      to,
+      from,
+      fromName,
+      subject,
+      html,
+      text,
+    });
+
+    if (!result.success) {
+      errors.push(`${to}: ${result.error}`);
+    }
+  }
+
+  return {
+    success: errors.length === 0,
+    errors,
+  };
 }
 
 /**
@@ -90,14 +128,14 @@ export function generateDownloadNotificationHtml(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
+  <div style="background: linear-gradient(135deg, #f6821f 0%, #ea580c 100%); padding: 30px; border-radius: 10px 10px 0 0;">
     <h1 style="color: white; margin: 0; font-size: 24px;">ファイルが届いています</h1>
   </div>
 
   <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
     <p style="margin-top: 0;">${senderName} さんからファイルが届きました。</p>
 
-    ${customMessage ? `<div style="background: white; padding: 15px; border-left: 4px solid #667eea; margin: 20px 0;"><p style="margin: 0; font-style: italic;">${escapeHtml(customMessage)}</p></div>` : ''}
+    ${customMessage ? `<div style="background: white; padding: 15px; border-left: 4px solid #f6821f; margin: 20px 0;"><p style="margin: 0; font-style: italic;">${escapeHtml(customMessage)}</p></div>` : ''}
 
     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <table style="width: 100%; border-collapse: collapse;">
@@ -117,7 +155,7 @@ export function generateDownloadNotificationHtml(params: {
     </div>
 
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${downloadUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ダウンロードする</a>
+      <a href="${downloadUrl}" style="display: inline-block; background: linear-gradient(135deg, #f6821f 0%, #ea580c 100%); color: white; padding: 15px 40px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">ダウンロードする</a>
     </div>
 
     <p style="font-size: 12px; color: #6c757d; margin-bottom: 0;">
