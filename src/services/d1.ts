@@ -300,14 +300,29 @@ export async function disableLink(
 
 /**
  * ダウンロード回数をインクリメント
+ * max_downloadsに達した場合は自動的にリンクを無効化
  */
 export async function incrementDownloadCount(
   db: D1Database,
   linkId: number
 ): Promise<void> {
+  // ダウンロードカウントをインクリメント
   await db
     .prepare(
       'UPDATE download_links SET download_count = download_count + 1 WHERE id = ?'
+    )
+    .bind(linkId)
+    .run();
+
+  // max_downloadsに達したらリンクを無効化
+  await db
+    .prepare(
+      `UPDATE download_links
+       SET disabled_at = datetime('now')
+       WHERE id = ?
+         AND max_downloads IS NOT NULL
+         AND download_count >= max_downloads
+         AND disabled_at IS NULL`
     )
     .bind(linkId)
     .run();
