@@ -150,6 +150,66 @@ dashboard.get('/', async (c) => {
         </a>
       </div>
     </div>
+
+    <!-- ローカル時刻表示スクリプト -->
+    <script>
+      (function() {
+        // ブラウザのタイムゾーンで正確な時刻を表示
+        function formatLocalTime(isoString, locale) {
+          const date = new Date(isoString);
+          const options = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          };
+          return new Intl.DateTimeFormat(locale, options).format(date);
+        }
+
+        // 相対時間を計算（ツールチップ用）
+        function formatRelativeTime(isoString, locale) {
+          const date = new Date(isoString);
+          const now = new Date();
+          const diffMs = now.getTime() - date.getTime();
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMins / 60);
+          const diffDays = Math.floor(diffHours / 24);
+
+          if (locale === 'ja') {
+            if (diffMins < 1) return 'たった今';
+            if (diffMins < 60) return diffMins + '分前';
+            if (diffHours < 24) return diffHours + '時間前';
+            if (diffDays < 7) return diffDays + '日前';
+            return diffDays + '日前';
+          } else {
+            if (diffMins < 1) return 'just now';
+            if (diffMins < 60) return diffMins + ' min ago';
+            if (diffHours < 24) return diffHours + ' hours ago';
+            if (diffDays < 7) return diffDays + ' days ago';
+            return diffDays + ' days ago';
+          }
+        }
+
+        // ページ読み込み時に時刻を変換
+        document.addEventListener('DOMContentLoaded', function() {
+          const locale = document.documentElement.lang || 'ja';
+          const timeElements = document.querySelectorAll('.local-time');
+
+          timeElements.forEach(function(el) {
+            const isoString = el.getAttribute('datetime');
+            if (isoString) {
+              // 正確な時刻を表示
+              el.textContent = formatLocalTime(isoString, locale);
+              // 相対時間をツールチップに設定
+              el.title = formatRelativeTime(isoString, locale);
+            }
+          });
+        });
+      })();
+    </script>
   `;
 
   return c.html(layout({ title: get('dashboard.title'), user, lang }, content));
@@ -193,7 +253,7 @@ function renderActivityItem(
           ${activity.details ? `<p class="text-xs text-gray-500">IP: ${escapeHtml(activity.details)}</p>` : ''}
         </div>
       </div>
-      <span class="text-sm text-gray-500">${formatRelativeTime(activity.created_at)}</span>
+      <time class="text-sm text-gray-500 local-time" datetime="${activity.created_at}" title="${formatRelativeTime(activity.created_at)}"></time>
     </div>
   `;
 }
