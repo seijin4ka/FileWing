@@ -52,7 +52,12 @@ src/
 ├── services/
 │   ├── r2.ts             # R2ストレージ操作
 │   ├── d1.ts             # D1データベース操作
-│   └── email.ts          # Resendメール送信
+│   ├── email.ts          # Resendメール送信
+│   ├── costs.ts          # コスト見積もり計算
+│   └── ratelimit.ts      # レート制限（ブルートフォース対策）
+├── utils/
+│   ├── crypto.ts         # PBKDF2パスワードハッシュ化、タイミング安全比較
+│   └── mime.ts           # マジックバイトによるMIME検証
 ├── routes/
 │   ├── api/
 │   │   ├── files.ts      # POST/GET/DELETE /api/files
@@ -66,7 +71,8 @@ src/
 │       ├── files.ts      # GET /files, GET /files/:id
 │       ├── download.ts   # GET /d/:token（公開）
 │       ├── receive.ts    # GET /receive（受信リンク管理）
-│       └── receive-guest.ts  # GET /r/:token（ゲストアップロード・公開）
+│       ├── receive-guest.ts  # GET /r/:token（ゲストアップロード・公開）
+│       └── costs.ts      # GET /costs（コスト見積もりダッシュボード）
 └── templates/
     ├── layout.ts         # 共通HTMLレイアウト
     └── components/       # UIコンポーネント
@@ -116,6 +122,18 @@ src/
 - オプション: パスワード保護、最大ダウンロード回数
 - 回数制限到達時は自動無効化
 
+### セキュリティ対策
+- **パスワードハッシュ**: PBKDF2（SHA-256、100,000イテレーション、ソルト付き）
+- **タイミング攻撃対策**: 定数時間文字列比較
+- **レート制限**: 5回失敗で30分ロックアウト（D1でトラッキング）
+- **MIME検証**: マジックバイトによるファイル種別検証（拡張子偽装対策）
+- **XSS対策**: JavaScript文字列のエスケープ処理
+
+### コスト見積もり
+- Cloudflare R2/D1/Workers の2026年料金体系に基づく計算
+- 無料枠の考慮（R2: 10GB、D1: 5GB、Workers: 1000万リクエスト/月）
+- ダッシュボードとコスト専用ページで表示
+
 ### UIレンダリング
 - サーバーサイドHTML生成（テンプレート文字列）
 - Tailwind CSS（CDN経由）
@@ -123,7 +141,7 @@ src/
 
 ## データベーススキーマ
 
-7つのテーブル:
+8つのテーブル:
 1. `users` - Cloudflare Accessユーザー
 2. `files` - アップロードファイルメタデータ
 3. `download_links` - ダウンロードリンク（トークン、期限、パスワード、回数制限）
@@ -131,6 +149,7 @@ src/
 5. `download_logs` - ダウンロード履歴（IP、UA、日時）
 6. `receive_links` - 受信リンク（ゲストアップロード用）
 7. `received_files` - 受信ファイル
+8. `password_attempts` - パスワード試行記録（レート制限用）
 
 マイグレーションは `migrations/` ディレクトリに配置。
 
