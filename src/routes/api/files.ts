@@ -8,7 +8,6 @@ import type { Env, Variables } from '../../types';
 import {
   uploadFile,
   generateR2Key,
-  guessMimeType,
 } from '../../services/r2';
 import {
   createFile,
@@ -17,6 +16,7 @@ import {
   softDeleteFile,
   getLinksByFile,
 } from '../../services/d1';
+import { validateMimeType } from '../../utils/mime';
 
 const files = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -48,14 +48,20 @@ files.post('/', async (c) => {
       );
     }
 
-    // MIMEタイプを取得（なければファイル名から推測）
-    const mimeType = file.type || guessMimeType(file.name);
+    // ファイルデータを読み込み
+    const arrayBuffer = await file.arrayBuffer();
+
+    // MIMEタイプをマジックバイトで検証（クライアント提供値より優先）
+    const { mime: mimeType } = validateMimeType(
+      arrayBuffer,
+      file.name,
+      file.type || 'application/octet-stream'
+    );
 
     // R2キーを生成
     const r2Key = generateR2Key(userId, file.name);
 
     // R2にアップロード
-    const arrayBuffer = await file.arrayBuffer();
     await uploadFile(c.env.R2_BUCKET, r2Key, arrayBuffer, mimeType);
 
     // D1にメタデータを保存
