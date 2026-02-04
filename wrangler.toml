@@ -11,6 +11,27 @@ compatibility_flags = ["nodejs_compat"]
 SKIP_AUTH = "true"
 EMAIL_FROM = "noreply@example.com"  # 実際のEmail Routing検証済みアドレスに置き換えてください
 
+# 認証方式: 'saml' | 'cloudflare-access' | 'skip'
+# 省略時は環境変数から自動判定
+# AUTH_METHOD = "skip"
+
+# SAML設定（AUTH_METHOD='saml'の場合に必要）
+# SAML_ENTITY_ID = "https://your-domain.com"
+# SAML_IDP_SSO_URL = ""  # Google SAML SSO URL
+# SAML_IDP_ENTITY_ID = ""  # Google IdP Entity ID
+# SAML_CALLBACK_URL = "https://your-domain.com/auth/saml/callback"
+
+# セッション設定
+SESSION_MAX_AGE = "86400"  # 1日（秒）
+APP_URL = "http://localhost:8787"
+
+# ドメイン制限（カンマ区切り、空=全ドメイン許可）
+# ALLOWED_DOMAINS = "company.com,partner.co.jp"
+
+# シークレット（wrangler secret putで設定）
+# SESSION_SECRET - セッションJWT署名キー（32文字以上のランダム文字列）
+# SAML_IDP_CERT - Google IdP X.509証明書（Base64）
+
 # R2バケット
 [[r2_buckets]]
 binding = "R2_BUCKET"
@@ -35,6 +56,11 @@ crons = ["0 18 * * *"]
 # 本番環境設定
 # =====================================================
 [env.production]
+# 認証方式を選択:
+# - AUTH_METHOD = "saml" : SAML SSO認証（ログアウトボタンあり）
+# - AUTH_METHOD = "cloudflare-access" : Cloudflare Access認証（ログアウトボタンなし）
+# vars = { AUTH_METHOD = "saml", SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com", SAML_ENTITY_ID = "...", ... }
+# vars = { AUTH_METHOD = "cloudflare-access", SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com", ACCESS_TEAM_NAME = "...", ACCESS_AUD = "..." }
 vars = { SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com" }  # EMAIL_FROMは実際のアドレスに置き換え
 
 [[env.production.r2_buckets]]

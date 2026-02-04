@@ -12,7 +12,7 @@
 - **フレームワーク**: Hono v4
 - **ストレージ**: Cloudflare R2（容量無制限）
 - **データベース**: Cloudflare D1 (SQLite)
-- **認証**: Cloudflare Access (JWT)
+- **認証**: SAML 2.0 SSO (Google Workspace対応)
 - **メール**: Cloudflare Email Sending
 - **UI**: Tailwind CSS (CDN)
 - **多言語対応**: 日本語/英語
@@ -47,7 +47,7 @@ src/
 ├── scheduled.ts          # 定期クリーンアップジョブ（Cron Trigger）
 ├── types/index.ts        # 型定義（Env, Models, API types）
 ├── middleware/
-│   ├── auth.ts           # Cloudflare Access認証
+│   ├── auth.ts           # セッションベースSAML認証
 │   └── language.ts       # 言語検出ミドルウェア
 ├── i18n/
 │   ├── index.ts          # 多言語ユーティリティ
@@ -57,7 +57,14 @@ src/
 │   ├── d1.ts             # D1データベース操作
 │   ├── email.ts          # Cloudflare Email Sending
 │   ├── costs.ts          # コスト見積もり計算
-│   └── ratelimit.ts      # レート制限（ブルートフォース対策）
+│   ├── ratelimit.ts      # レート制限（ブルートフォース対策）
+│   ├── session.ts        # セッションJWT管理
+│   └── saml/             # SAML SSO認証
+│       ├── index.ts      # SAMLサービス統合
+│       ├── types.ts      # SAML型定義
+│       ├── request.ts    # AuthnRequest生成
+│       ├── response.ts   # SAMLResponse解析・検証
+│       └── metadata.ts   # SPメタデータ生成
 ├── utils/
 │   ├── crypto.ts         # PBKDF2パスワードハッシュ化、タイミング安全比較
 │   └── mime.ts           # マジックバイトによるMIME検証
@@ -68,6 +75,8 @@ src/
 │   │   ├── email.ts      # POST /api/links/:id/send
 │   │   ├── receive.ts    # 受信リンク管理API
 │   │   └── export.ts     # CSVエクスポートAPI
+│   ├── auth/
+│   │   └── index.ts      # SAML認証エンドポイント
 │   └── pages/
 │       ├── dashboard.ts  # GET /
 │       ├── upload.ts     # GET /upload
@@ -76,7 +85,8 @@ src/
 │       ├── download.ts   # GET /d/:token（公開）
 │       ├── receive.ts    # GET /receive（受信リンク管理）
 │       ├── receive-guest.ts  # GET /r/:token（ゲストアップロード・公開）
-│       └── costs.ts      # GET /costs（コスト見積もりダッシュボード）
+│       ├── costs.ts      # GET /costs（コスト見積もりダッシュボード）
+│       └── login.ts      # GET /login（ログインページ）
 └── templates/
     ├── layout.ts         # 共通HTMLレイアウト
     └── components/       # UIコンポーネント
@@ -124,8 +134,36 @@ src/
 ## 重要なアーキテクチャ決定
 
 ### 認証
-- 本番: Cloudflare Access JWT検証
-- 開発: `SKIP_AUTH=true` でテストユーザー自動ログイン
+`AUTH_METHOD` 環境変数で認証方式を切り替え可能:
+
+| AUTH_METHOD | 説明 | ログアウトボタン |
+|-------------|------|-----------------|
+| `saml` | SAML 2.0 SSO認証（Google Workspace等） | あり |
+| `cloudflare-access` | Cloudflare Access JWT認証 | なし（Cloudflare側で管理） |
+| `skip` | 認証スキップ（開発用） | なし |
+
+- **自動判定**: `AUTH_METHOD` 省略時は環境変数から自動判定
+  - `SKIP_AUTH=true` → skip
+  - SAML設定完全 → saml
+  - Cloudflare Access設定あり → cloudflare-access
+- **公開ルート**: `/d/:token`、`/r/:token`、`/login`、`/auth/*` は認証不要
+- **ドメイン制限**: `ALLOWED_DOMAINS` で許可ドメインを制限可能（SAML認証時）
+
+#### SAML認証フロー
+1. ユーザーが `/` にアクセス
+2. セッションなし → `/login` にリダイレクト
+3. 「Googleでログイン」クリック → `/auth/login` → IdPにリダイレクト
+4. IdPでログイン → `/auth/saml/callback` にSAMLResponse送信
+5. SAMLResponse検証 → セッションCookie設定 → `/` にリダイレクト
+
+#### Google Workspace SAML設定手順
+1. Google Admin Console > アプリ > カスタムSAMLアプリを追加
+2. アプリ名: FileWing
+3. IdP情報をコピー（SSO URL、Entity ID、証明書）
+4. SP詳細:
+   - ACS URL: `https://your-domain.com/auth/saml/callback`
+   - Entity ID: `https://your-domain.com`
+   - Name ID形式: EMAIL
 
 ### ファイル保存
 - R2キー形式: `{userId}/{timestamp}-{uuid}/{sanitizedFilename}`
@@ -200,12 +238,35 @@ src/
 
 ## 環境変数・シークレット
 
-| 変数名 | 説明 | 設定方法 |
-|-------|------|---------|
-| `SKIP_AUTH` | 認証スキップ（開発用） | wrangler.toml |
-| `EMAIL_FROM` | 送信元メールアドレス（Email Routing検証済み） | wrangler.toml |
-| `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 | wrangler.toml |
-| `ACCESS_AUD` | Cloudflare Access AUD | wrangler.toml |
+### 基本設定（wrangler.toml）
+| 変数名 | 説明 | 例 |
+|-------|------|-----|
+| `AUTH_METHOD` | 認証方式（saml/cloudflare-access/skip） | `"saml"` |
+| `SKIP_AUTH` | 認証スキップ（後方互換用） | `"true"` |
+| `EMAIL_FROM` | 送信元メールアドレス | `"noreply@example.com"` |
+
+### SAML認証設定（wrangler.toml）
+| 変数名 | 説明 | 例 |
+|-------|------|-----|
+| `SAML_ENTITY_ID` | SP Entity ID | `"https://your-domain.com"` |
+| `SAML_IDP_SSO_URL` | IdP SSO URL | `"https://accounts.google.com/o/saml2/idp?..."` |
+| `SAML_IDP_ENTITY_ID` | IdP Entity ID | `"https://accounts.google.com/o/saml2?..."` |
+| `SAML_CALLBACK_URL` | ACS URL | `"https://your-domain.com/auth/saml/callback"` |
+| `APP_URL` | アプリケーションURL | `"https://your-domain.com"` |
+| `SESSION_MAX_AGE` | セッション有効期限（秒） | `"86400"` |
+| `ALLOWED_DOMAINS` | 許可ドメイン（カンマ区切り） | `"company.com,partner.co.jp"` |
+
+### シークレット（wrangler secret put）
+| 変数名 | 説明 |
+|-------|------|
+| `SESSION_SECRET` | セッションJWT署名キー（32文字以上） |
+| `SAML_IDP_CERT` | IdP X.509証明書（Base64） |
+
+### 後方互換（非推奨、Cloudflare Access用）
+| 変数名 | 説明 |
+|-------|------|
+| `ACCESS_TEAM_NAME` | Cloudflare Accessチーム名 |
+| `ACCESS_AUD` | Cloudflare Access AUD |
 
 ## wrangler設定ファイル
 

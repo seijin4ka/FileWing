@@ -314,6 +314,15 @@ export const translations = {
       message: 'お探しのページは存在しないか、移動した可能性があります',
       backHome: 'ホームに戻る',
     },
+
+    // ログインページ
+    login: {
+      title: 'ログイン',
+      description: 'セキュアなファイル共有プラットフォーム',
+      googleLogin: 'Googleでログイン',
+      securityNote: 'SAML SSO認証で安全にログインします',
+      footer: 'FileWing - 脱PPAP対応ファイル共有',
+    },
   },
 
   en: {
@@ -624,6 +633,15 @@ export const translations = {
       title: 'Page Not Found',
       message: 'The page you are looking for does not exist or has been moved',
       backHome: 'Back to Home',
+    },
+
+    // Login Page
+    login: {
+      title: 'Login',
+      description: 'Secure file sharing platform',
+      googleLogin: 'Login with Google',
+      securityNote: 'Securely login with SAML SSO authentication',
+      footer: 'FileWing - Secure File Sharing',
     },
   },
 } as const;

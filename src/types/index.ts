@@ -31,10 +31,36 @@ export interface Env {
   EMAIL_FROM?: string;
   /** 認証スキップフラグ（開発環境用） */
   SKIP_AUTH?: string;
-  /** Cloudflare Accessチーム名 */
+  /** Cloudflare Accessチーム名（後方互換用、非推奨） */
   ACCESS_TEAM_NAME?: string;
-  /** Cloudflare AccessアプリケーションAUD */
+  /** Cloudflare AccessアプリケーションAUD（後方互換用、非推奨） */
   ACCESS_AUD?: string;
+
+  // SAML認証設定
+  /** SP Entity ID（通常はアプリケーションのURL） */
+  SAML_ENTITY_ID?: string;
+  /** IdP SSO URL（Google SAML SSO URL） */
+  SAML_IDP_SSO_URL?: string;
+  /** IdP Entity ID */
+  SAML_IDP_ENTITY_ID?: string;
+  /** ACS URL（SAMLResponse受信エンドポイント） */
+  SAML_CALLBACK_URL?: string;
+  /** IdP X.509証明書（Base64エンコード） */
+  SAML_IDP_CERT?: string;
+
+  // セッション設定
+  /** セッション署名用シークレットキー */
+  SESSION_SECRET?: string;
+  /** セッション有効期限（秒、デフォルト: 86400 = 1日） */
+  SESSION_MAX_AGE?: string;
+  /** アプリケーションURL（リダイレクト先） */
+  APP_URL?: string;
+  /** 許可されたドメイン（カンマ区切り） */
+  ALLOWED_DOMAINS?: string;
+
+  // 認証方式選択
+  /** 認証方式: 'saml' | 'cloudflare-access' | 'skip' */
+  AUTH_METHOD?: string;
 }
 
 // =====================================================
@@ -202,6 +228,8 @@ export interface DownloadStats {
 export interface AuthUser {
   email: string;
   name?: string;
+  /** 認証プロバイダー */
+  provider?: 'cloudflare-access' | 'google-saml' | 'test';
 }
 
 /**
@@ -216,4 +244,24 @@ export interface Variables {
   user: AuthUser;
   userId: number;
   lang: Language;
+}
+
+// =====================================================
+// SAML認証関連
+// =====================================================
+
+/**
+ * SAMLセッションペイロード（JWTに格納）
+ */
+export interface SessionPayload {
+  /** ユーザーメールアドレス */
+  sub: string;
+  /** 表示名 */
+  name?: string;
+  /** 認証プロバイダー */
+  provider: 'google-saml' | 'test';
+  /** 発行時刻（Unix timestamp） */
+  iat: number;
+  /** 有効期限（Unix timestamp） */
+  exp: number;
 }

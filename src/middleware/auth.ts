@@ -1,11 +1,196 @@
 /**
- * Cloudflare Access認証ミドルウェア
- * JWTトークンを検証し、ユーザー情報をコンテキストに設定
+ * 認証ミドルウェア
+ * AUTH_METHOD環境変数に基づいて認証方式を切り替え
+ * - 'saml': SAML SSO認証（セッションベース）
+ * - 'cloudflare-access': Cloudflare Access JWT認証
+ * - 'skip': 認証スキップ（開発用）
+ *
+ * 後方互換: SKIP_AUTH=true は AUTH_METHOD='skip' と同等
  */
 
 import { Context, Next } from 'hono';
 import type { Env, Variables } from '../types';
 import { findOrCreateUser } from '../services/d1';
+import {
+  verifySessionToken,
+  getSessionTokenFromCookie,
+} from '../services/session';
+
+/**
+ * 認証方式を判定
+ */
+function getAuthMethod(env: Env): 'saml' | 'cloudflare-access' | 'skip' {
+  // AUTH_METHODが明示的に設定されている場合はそれを使用
+  if (env.AUTH_METHOD) {
+    const method = env.AUTH_METHOD.toLowerCase();
+    if (method === 'saml' || method === 'cloudflare-access' || method === 'skip') {
+      return method;
+    }
+  }
+
+  // 後方互換: SKIP_AUTH=true は 'skip' と同等
+  if (env.SKIP_AUTH === 'true') {
+    return 'skip';
+  }
+
+  // SAML設定が完全な場合はSAML認証
+  if (
+    env.SAML_ENTITY_ID &&
+    env.SAML_IDP_SSO_URL &&
+    env.SAML_IDP_ENTITY_ID &&
+    env.SAML_CALLBACK_URL &&
+    env.SAML_IDP_CERT &&
+    env.SESSION_SECRET
+  ) {
+    return 'saml';
+  }
+
+  // Cloudflare Access設定がある場合はCloudflare Access認証
+  if (env.ACCESS_TEAM_NAME || env.ACCESS_AUD) {
+    return 'cloudflare-access';
+  }
+
+  // デフォルトはskip（開発環境想定）
+  return 'skip';
+}
+
+/**
+ * 認証ミドルウェア（統合）
+ * 環境変数に基づいて適切な認証方式を選択
+ */
+export async function authMiddleware(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  next: Next
+) {
+  const authMethod = getAuthMethod(c.env);
+
+  switch (authMethod) {
+    case 'skip':
+      return skipAuthMiddleware(c, next);
+    case 'cloudflare-access':
+      return cloudflareAccessAuthMiddleware(c, next);
+    case 'saml':
+      return samlAuthMiddleware(c, next);
+    default:
+      return skipAuthMiddleware(c, next);
+  }
+}
+
+/**
+ * 認証スキップミドルウェア（開発用）
+ */
+async function skipAuthMiddleware(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  next: Next
+) {
+  console.warn('警告: 認証がスキップされています（開発モード）');
+  const testUser = await findOrCreateUser(c.env.DB, 'test@example.com', 'テストユーザー');
+  c.set('user', { email: testUser.email, name: testUser.name || undefined, provider: 'test' });
+  c.set('userId', testUser.id);
+  return next();
+}
+
+/**
+ * SAML SSO認証ミドルウェア
+ * セッションCookieのJWTを検証
+ */
+async function samlAuthMiddleware(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  next: Next
+) {
+  const env = c.env;
+
+  // セッションシークレットが設定されていない場合はエラー
+  if (!env.SESSION_SECRET) {
+    console.error('SESSION_SECRET is not configured');
+    return redirectToLogin(c);
+  }
+
+  // セッションCookieからJWTを取得
+  const cookieHeader = c.req.header('Cookie');
+  const token = getSessionTokenFromCookie(cookieHeader);
+
+  if (!token) {
+    return redirectToLogin(c);
+  }
+
+  // JWTを検証
+  const payload = await verifySessionToken(token, env.SESSION_SECRET);
+
+  if (!payload) {
+    return redirectToLogin(c, 'session');
+  }
+
+  // ドメイン制限をチェック（設定されている場合）
+  if (env.ALLOWED_DOMAINS && !isDomainAllowed(payload.sub, env.ALLOWED_DOMAINS)) {
+    return redirectToLogin(c, 'domain');
+  }
+
+  // ユーザーをDB上で検索または作成
+  const user = await findOrCreateUser(c.env.DB, payload.sub, payload.name);
+
+  // コンテキストにユーザー情報を設定
+  c.set('user', {
+    email: user.email,
+    name: user.name || undefined,
+    provider: payload.provider,
+  });
+  c.set('userId', user.id);
+
+  return next();
+}
+
+/**
+ * ドメイン制限をチェック
+ */
+function isDomainAllowed(email: string, allowedDomains: string): boolean {
+  const domains = allowedDomains.split(',').map((d) => d.trim().toLowerCase());
+  const emailDomain = email.split('@')[1]?.toLowerCase();
+
+  if (!emailDomain) {
+    return false;
+  }
+
+  return domains.includes(emailDomain);
+}
+
+/**
+ * ログインページにリダイレクト
+ */
+function redirectToLogin(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  error?: string
+) {
+  // APIリクエストの場合はJSON
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ error: '認証が必要です' }, 401);
+  }
+
+  // それ以外はログインページにリダイレクト
+  const url = error ? `/login?error=${error}` : '/login';
+  return c.redirect(url, 302);
+}
+
+/**
+ * 認証情報をテンプレート用に取得するヘルパー
+ */
+export function getAuthInfo(c: Context<{ Variables: Variables }>) {
+  return {
+    user: c.get('user'),
+    userId: c.get('userId'),
+  };
+}
+
+/**
+ * 現在の認証方式を取得（テンプレート用）
+ */
+export function getAuthMethod_forTemplate(env: Env): 'saml' | 'cloudflare-access' | 'skip' {
+  return getAuthMethod(env);
+}
+
+// =====================================================
+// Cloudflare Access認証
+// =====================================================
 
 /**
  * Cloudflare AccessのJWTペイロード
@@ -57,25 +242,13 @@ const keyCache = new Map<string, { key: CryptoKey; expires: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1時間
 
 /**
- * 認証ミドルウェア
- * - 本番環境: Cloudflare AccessのJWTを検証（署名検証含む）
- * - 開発環境: SKIP_AUTH=trueでスキップ可能
+ * Cloudflare Access認証ミドルウェア
  */
-export async function authMiddleware(
+export async function cloudflareAccessAuthMiddleware(
   c: Context<{ Bindings: Env; Variables: Variables }>,
   next: Next
 ) {
   const env = c.env;
-
-  // 開発環境での認証スキップ
-  // 警告: 本番環境では必ずSKIP_AUTH=falseにすること
-  if (env.SKIP_AUTH === 'true') {
-    console.warn('警告: 認証がスキップされています（開発モード）');
-    const testUser = await findOrCreateUser(c.env.DB, 'test@example.com', 'テストユーザー');
-    c.set('user', { email: testUser.email, name: testUser.name || undefined });
-    c.set('userId', testUser.id);
-    return next();
-  }
 
   // Cloudflare Accessのヘッダーを取得
   const cfAccessJwt = c.req.header('Cf-Access-Jwt-Assertion');
@@ -107,7 +280,7 @@ export async function authMiddleware(
     const user = await findOrCreateUser(c.env.DB, email, payload.name);
 
     // コンテキストにユーザー情報を設定
-    c.set('user', { email: user.email, name: user.name || undefined });
+    c.set('user', { email: user.email, name: user.name || undefined, provider: 'cloudflare-access' });
     c.set('userId', user.id);
 
     return next();
@@ -293,14 +466,4 @@ function base64UrlToArrayBuffer(str: string): ArrayBuffer {
     bytes[i] = decoded.charCodeAt(i);
   }
   return bytes.buffer;
-}
-
-/**
- * 認証情報をテンプレート用に取得するヘルパー
- */
-export function getAuthInfo(c: Context<{ Variables: Variables }>) {
-  return {
-    user: c.get('user'),
-    userId: c.get('userId'),
-  };
 }

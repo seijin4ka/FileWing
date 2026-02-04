@@ -17,13 +17,15 @@ export interface LayoutOptions {
   hideHeader?: boolean;
   /** 言語設定 */
   lang?: Language;
+  /** 認証方式（ログアウトボタン表示制御用） */
+  authMethod?: 'saml' | 'cloudflare-access' | 'skip';
 }
 
 /**
  * 共通HTMLレイアウト
  */
 export function layout(options: LayoutOptions, content: string): string {
-  const { title, user, bodyClass = '', hideHeader = false, lang = 'ja' } = options;
+  const { title, user, bodyClass = '', hideHeader = false, lang = 'ja', authMethod } = options;
   const { get } = createTranslator(lang);
 
   return `<!DOCTYPE html>
@@ -115,7 +117,7 @@ export function layout(options: LayoutOptions, content: string): string {
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen ${bodyClass}">
-  ${hideHeader ? '' : renderHeader(user, lang)}
+  ${hideHeader ? '' : renderHeader(user, lang, authMethod)}
 
   <main class="container mx-auto px-4 py-8">
     ${content}
@@ -253,10 +255,18 @@ export function layout(options: LayoutOptions, content: string): string {
 /**
  * ヘッダーをレンダリング
  */
-function renderHeader(user?: { email: string; name?: string } | null, lang: Language = 'ja'): string {
+function renderHeader(
+  user?: { email: string; name?: string } | null,
+  lang: Language = 'ja',
+  authMethod?: 'saml' | 'cloudflare-access' | 'skip'
+): string {
   const { get } = createTranslator(lang);
   const otherLang = lang === 'ja' ? 'en' : 'ja';
   const otherLangName = LANGUAGE_NAMES[otherLang];
+
+  // SAML認証の場合のみログアウトボタンを表示
+  // Cloudflare Access認証の場合はCloudflare側でセッション管理されるため非表示
+  const showLogout = authMethod === 'saml';
 
   return `
   <header class="bg-primary-500 shadow-lg">
@@ -287,6 +297,11 @@ function renderHeader(user?: { email: string; name?: string } | null, lang: Lang
           <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
             <span class="text-white font-medium">${escapeHtml((user.name || user.email)[0].toUpperCase())}</span>
           </div>
+          ${showLogout ? `
+          <a href="/auth/logout" class="text-sm text-primary-100 hover:text-white transition-colors ml-2">
+            ${get('nav.logout')}
+          </a>
+          ` : ''}
           ` : ''}
         </div>
       </div>

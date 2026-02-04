@@ -29,6 +29,10 @@ import receive from './routes/pages/receive';
 import receiveGuest from './routes/pages/receive-guest';
 import costs from './routes/pages/costs';
 import links from './routes/pages/links';
+import login from './routes/pages/login';
+
+// 認証ルート
+import auth from './routes/auth';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -55,6 +59,12 @@ app.use(
 // =====================================================
 // 公開ルート（認証不要）
 // =====================================================
+
+// ログインページ
+app.route('/login', login);
+
+// 認証ルート（SAML SSO）
+app.route('/auth', auth);
 
 // ダウンロードページ
 app.route('/d', download);
