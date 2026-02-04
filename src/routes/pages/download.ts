@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../../types';
-import { layout, formatFileSize, formatDateTime, escapeHtml } from '../../templates/layout';
+import { layout, formatFileSize, formatDateTime, escapeHtml, escapeJsString } from '../../templates/layout';
 import { getValidLinkByToken } from '../../services/d1';
 
 const download = new Hono<{ Bindings: Env }>();
@@ -176,7 +176,7 @@ download.get('/:token', async (c) => {
           const downloadUrl = window.URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = downloadUrl;
-          a.download = '${escapeHtml(file.original_name).replace(/'/g, "\\'")}';
+          a.download = '${escapeJsString(file.original_name)}';
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(downloadUrl);

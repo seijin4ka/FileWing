@@ -228,6 +228,24 @@ export function escapeHtml(text: string): string {
 }
 
 /**
+ * JavaScript文字列リテラル用のエスケープ
+ * テンプレートリテラル内の文字列や、クォート内の文字列を安全にエスケープ
+ */
+export function escapeJsString(text: string): string {
+  return text
+    .replace(/\\/g, '\\\\') // バックスラッシュを最初にエスケープ
+    .replace(/'/g, "\\'")   // シングルクォート
+    .replace(/"/g, '\\"')   // ダブルクォート
+    .replace(/`/g, '\\`')   // バッククォート（テンプレートリテラル用）
+    .replace(/\$/g, '\\$')  // ドル記号（テンプレートリテラルの変数展開防止）
+    .replace(/\n/g, '\\n')  // 改行
+    .replace(/\r/g, '\\r')  // キャリッジリターン
+    .replace(/\t/g, '\\t')  // タブ
+    .replace(/</g, '\\u003c') // HTMLタグ開始（script終了タグ対策）
+    .replace(/>/g, '\\u003e'); // HTMLタグ終了
+}
+
+/**
  * ファイルサイズをフォーマット
  */
 export function formatFileSize(bytes: number): string {
