@@ -154,9 +154,12 @@ dashboard.get('/', async (c) => {
     <!-- ローカル時刻表示スクリプト -->
     <script>
       (function() {
-        // ブラウザのタイムゾーンで正確な時刻を表示
+        // 言語設定に応じたタイムゾーンで正確な時刻を表示
+        // 日本語: JST (GMT+9), 英語: UTC (GMT)
         function formatLocalTime(isoString, locale) {
           const date = new Date(isoString);
+          // 言語に応じたタイムゾーンを設定
+          const timeZone = locale === 'ja' ? 'Asia/Tokyo' : 'UTC';
           const options = {
             year: 'numeric',
             month: '2-digit',
@@ -164,9 +167,12 @@ dashboard.get('/', async (c) => {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
-            hour12: false
+            hour12: false,
+            timeZone: timeZone
           };
-          return new Intl.DateTimeFormat(locale, options).format(date);
+          // タイムゾーン略称を追加（英語の場合のみUTC表示）
+          const formatted = new Intl.DateTimeFormat(locale, options).format(date);
+          return locale === 'ja' ? formatted : formatted + ' UTC';
         }
 
         // 相対時間を計算（ツールチップ用）
