@@ -2,7 +2,9 @@ name = "filewing"
 main = "src/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
-account_id = "YOUR_ACCOUNT_ID"
+
+# account_id は環境変数 CLOUDFLARE_ACCOUNT_ID で設定するか、
+# ローカルの .dev.vars に記載してください
 
 # 開発環境では認証をスキップ
 [vars]
@@ -17,7 +19,7 @@ bucket_name = "filewing-bucket"
 [[d1_databases]]
 binding = "DB"
 database_name = "filewing-db"
-database_id = "YOUR_DATABASE_ID"
+database_id = "YOUR_DATABASE_ID"  # 実際のIDに置き換えてください
 migrations_dir = "migrations"
 
 # Email Sending（Cloudflare Email Routing統合）
@@ -41,7 +43,7 @@ bucket_name = "filewing-bucket"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "filewing-db"
-database_id = "YOUR_DATABASE_ID"
+database_id = "YOUR_DATABASE_ID"  # 実際のIDに置き換えてください
 
 [[env.production.send_email]]
 name = "EMAIL"

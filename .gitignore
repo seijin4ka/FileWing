@@ -12,6 +12,7 @@ dist/
 .env.local
 .env.*.local
 .dev.vars
+wrangler.local.toml
 
 # OS生成ファイル
 .DS_Store
