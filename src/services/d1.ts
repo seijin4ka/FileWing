@@ -879,3 +879,99 @@ export async function deleteReceivedFile(
     .bind(fileId)
     .run();
 }
+
+// =====================================================
+// コスト見積もり用統計
+// =====================================================
+
+/**
+ * システム全体の使用量統計を取得（コスト見積もり用）
+ */
+export async function getSystemUsageStats(
+  db: D1Database
+): Promise<{
+  totalStorageBytes: number;
+  fileCount: number;
+  uploadsThisMonth: number;
+  downloadsThisMonth: number;
+  receivedFilesCount: number;
+  receivedStorageBytes: number;
+}> {
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1);
+  firstOfMonth.setHours(0, 0, 0, 0);
+  const monthStart = firstOfMonth.toISOString();
+
+  const stats = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM files WHERE deleted_at IS NULL) as file_count,
+         (SELECT COALESCE(SUM(size), 0) FROM files WHERE deleted_at IS NULL) as total_storage,
+         (SELECT COUNT(*) FROM files WHERE created_at >= ?) as uploads_this_month,
+         (SELECT COALESCE(SUM(download_count), 0) FROM download_links WHERE created_at >= ?) as downloads_this_month,
+         (SELECT COUNT(*) FROM received_files) as received_files_count,
+         (SELECT COALESCE(SUM(size), 0) FROM received_files) as received_storage`
+    )
+    .bind(monthStart, monthStart)
+    .first<{
+      file_count: number;
+      total_storage: number;
+      uploads_this_month: number;
+      downloads_this_month: number;
+      received_files_count: number;
+      received_storage: number;
+    }>();
+
+  return {
+    totalStorageBytes: (stats?.total_storage || 0) + (stats?.received_storage || 0),
+    fileCount: (stats?.file_count || 0) + (stats?.received_files_count || 0),
+    uploadsThisMonth: stats?.uploads_this_month || 0,
+    downloadsThisMonth: stats?.downloads_this_month || 0,
+    receivedFilesCount: stats?.received_files_count || 0,
+    receivedStorageBytes: stats?.received_storage || 0,
+  };
+}
+
+/**
+ * ユーザー別の使用量統計を取得
+ */
+export async function getUserUsageStats(
+  db: D1Database,
+  userId: number
+): Promise<{
+  totalStorageBytes: number;
+  fileCount: number;
+  uploadsThisMonth: number;
+  downloadsThisMonth: number;
+}> {
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1);
+  firstOfMonth.setHours(0, 0, 0, 0);
+  const monthStart = firstOfMonth.toISOString();
+
+  const stats = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM files WHERE user_id = ? AND deleted_at IS NULL) as file_count,
+         (SELECT COALESCE(SUM(size), 0) FROM files WHERE user_id = ? AND deleted_at IS NULL) as total_storage,
+         (SELECT COUNT(*) FROM files WHERE user_id = ? AND created_at >= ?) as uploads_this_month,
+         (SELECT COALESCE(SUM(dl.download_count), 0)
+          FROM download_links dl
+          JOIN files f ON dl.file_id = f.id
+          WHERE f.user_id = ? AND dl.created_at >= ?) as downloads_this_month`
+    )
+    .bind(userId, userId, userId, monthStart, userId, monthStart)
+    .first<{
+      file_count: number;
+      total_storage: number;
+      uploads_this_month: number;
+      downloads_this_month: number;
+    }>();
+
+  return {
+    totalStorageBytes: stats?.total_storage || 0,
+    fileCount: stats?.file_count || 0,
+    uploadsThisMonth: stats?.uploads_this_month || 0,
+    downloadsThisMonth: stats?.downloads_this_month || 0,
+  };
+}

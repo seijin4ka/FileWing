@@ -27,6 +27,7 @@ import files from './routes/pages/files';
 import download from './routes/pages/download';
 import receive from './routes/pages/receive';
 import receiveGuest from './routes/pages/receive-guest';
+import costs from './routes/pages/costs';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -88,6 +89,7 @@ app.route('/', dashboard);
 app.route('/upload', upload);
 app.route('/files', files);
 app.route('/receive', receive);
+app.route('/costs', costs);
 
 // =====================================================
 // エラーハンドリング
