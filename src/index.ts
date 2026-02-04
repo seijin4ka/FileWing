@@ -15,12 +15,15 @@ import { authMiddleware } from './middleware/auth';
 import filesApi from './routes/api/files';
 import linksApi from './routes/api/links';
 import emailApi from './routes/api/email';
+import receiveApi from './routes/api/receive';
 
 // ページルート
 import dashboard from './routes/pages/dashboard';
 import upload from './routes/pages/upload';
 import files from './routes/pages/files';
 import download from './routes/pages/download';
+import receive from './routes/pages/receive';
+import receiveGuest from './routes/pages/receive-guest';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -56,6 +59,9 @@ app.get('/d/:token/download', async (c) => {
   return linksHandler.fetch(c.req.raw, c.env, c.executionCtx);
 });
 
+// ゲスト受信ページ（公開）
+app.route('/r', receiveGuest);
+
 // =====================================================
 // 認証が必要なルート
 // =====================================================
@@ -68,11 +74,13 @@ app.use('/api/*', authMiddleware);
 app.route('/api/files', filesApi);
 app.route('/api', linksApi);
 app.route('/api', emailApi);
+app.route('/api', receiveApi);
 
 // ページルート
 app.route('/', dashboard);
 app.route('/upload', upload);
 app.route('/files', files);
+app.route('/receive', receive);
 
 // =====================================================
 // エラーハンドリング

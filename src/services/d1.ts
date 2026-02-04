@@ -543,3 +543,223 @@ export async function getRecentActivity(
 
   return activities.slice(0, limit);
 }
+
+// =====================================================
+// 受信リンク関連
+// =====================================================
+
+import type { ReceiveLink, ReceivedFile } from '../types';
+
+/**
+ * 受信リンクを作成
+ */
+export async function createReceiveLink(
+  db: D1Database,
+  userId: number,
+  expiresDays: number,
+  title?: string,
+  passwordHash?: string,
+  maxFiles?: number,
+  maxFileSize?: number
+): Promise<ReceiveLink> {
+  const token = generateSecureToken();
+
+  // 有効期限を計算（1-10日に制限）
+  const days = Math.min(Math.max(expiresDays, 1), 10);
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + days);
+
+  const result = await db
+    .prepare(
+      `INSERT INTO receive_links
+       (user_id, token, title, expires_at, max_files, max_file_size, password_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`
+    )
+    .bind(
+      userId,
+      token,
+      title || null,
+      expiresAt.toISOString(),
+      maxFiles || null,
+      maxFileSize || null,
+      passwordHash || null
+    )
+    .first<ReceiveLink>();
+
+  if (!result) {
+    throw new Error('受信リンクの作成に失敗しました');
+  }
+
+  return result;
+}
+
+/**
+ * トークンで有効な受信リンクを取得
+ */
+export async function getValidReceiveLinkByToken(
+  db: D1Database,
+  token: string
+): Promise<ReceiveLink | null> {
+  return await db
+    .prepare(
+      `SELECT * FROM receive_links
+       WHERE token = ?
+         AND disabled_at IS NULL
+         AND expires_at > datetime('now')`
+    )
+    .bind(token)
+    .first<ReceiveLink>();
+}
+
+/**
+ * ユーザーの受信リンク一覧を取得
+ */
+export async function getReceiveLinksByUser(
+  db: D1Database,
+  userId: number
+): Promise<ReceiveLink[]> {
+  const result = await db
+    .prepare(
+      'SELECT * FROM receive_links WHERE user_id = ? ORDER BY created_at DESC'
+    )
+    .bind(userId)
+    .all<ReceiveLink>();
+
+  return result.results;
+}
+
+/**
+ * 受信リンクIDで取得
+ */
+export async function getReceiveLinkById(
+  db: D1Database,
+  linkId: number
+): Promise<ReceiveLink | null> {
+  return await db
+    .prepare('SELECT * FROM receive_links WHERE id = ?')
+    .bind(linkId)
+    .first<ReceiveLink>();
+}
+
+/**
+ * 受信リンクを無効化
+ */
+export async function disableReceiveLink(
+  db: D1Database,
+  linkId: number,
+  userId: number
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE receive_links
+       SET disabled_at = datetime('now')
+       WHERE id = ? AND user_id = ? AND disabled_at IS NULL`
+    )
+    .bind(linkId, userId)
+    .run();
+
+  return result.meta.changes > 0;
+}
+
+/**
+ * 受信ファイルを作成
+ */
+export async function createReceivedFile(
+  db: D1Database,
+  receiveLinkId: number,
+  r2Key: string,
+  originalName: string,
+  size: number,
+  mimeType: string,
+  senderName?: string,
+  senderEmail?: string,
+  message?: string,
+  ipAddress?: string
+): Promise<ReceivedFile> {
+  const result = await db
+    .prepare(
+      `INSERT INTO received_files
+       (receive_link_id, r2_key, original_name, size, mime_type, sender_name, sender_email, message, ip_address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING *`
+    )
+    .bind(
+      receiveLinkId,
+      r2Key,
+      originalName,
+      size,
+      mimeType,
+      senderName || null,
+      senderEmail || null,
+      message || null,
+      ipAddress || null
+    )
+    .first<ReceivedFile>();
+
+  if (!result) {
+    throw new Error('受信ファイルの記録に失敗しました');
+  }
+
+  return result;
+}
+
+/**
+ * 受信リンクのファイル一覧を取得
+ */
+export async function getReceivedFilesByLink(
+  db: D1Database,
+  receiveLinkId: number
+): Promise<ReceivedFile[]> {
+  const result = await db
+    .prepare(
+      'SELECT * FROM received_files WHERE receive_link_id = ? ORDER BY uploaded_at DESC'
+    )
+    .bind(receiveLinkId)
+    .all<ReceivedFile>();
+
+  return result.results;
+}
+
+/**
+ * 受信リンクのファイル数を取得
+ */
+export async function getReceivedFileCount(
+  db: D1Database,
+  receiveLinkId: number
+): Promise<number> {
+  const result = await db
+    .prepare('SELECT COUNT(*) as count FROM received_files WHERE receive_link_id = ?')
+    .bind(receiveLinkId)
+    .first<{ count: number }>();
+
+  return result?.count || 0;
+}
+
+/**
+ * 受信ファイルをIDで取得
+ */
+export async function getReceivedFileById(
+  db: D1Database,
+  fileId: number
+): Promise<ReceivedFile | null> {
+  return await db
+    .prepare('SELECT * FROM received_files WHERE id = ?')
+    .bind(fileId)
+    .first<ReceivedFile>();
+}
+
+/**
+ * 受信ファイルのダウンロード済みを記録
+ */
+export async function markReceivedFileDownloaded(
+  db: D1Database,
+  fileId: number
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE received_files SET downloaded_at = datetime('now') WHERE id = ?`
+    )
+    .bind(fileId)
+    .run();
+}

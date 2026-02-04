@@ -91,6 +91,40 @@ export interface DownloadLog {
   downloaded_at: string;
 }
 
+/**
+ * 受信リンク
+ */
+export interface ReceiveLink {
+  id: number;
+  user_id: number;
+  token: string;
+  title: string | null;
+  expires_at: string;
+  max_files: number | null;
+  max_file_size: number | null;
+  password_hash: string | null;
+  created_at: string;
+  disabled_at: string | null;
+}
+
+/**
+ * 受信ファイル
+ */
+export interface ReceivedFile {
+  id: number;
+  receive_link_id: number;
+  r2_key: string;
+  original_name: string;
+  size: number;
+  mime_type: string;
+  sender_name: string | null;
+  sender_email: string | null;
+  message: string | null;
+  ip_address: string | null;
+  uploaded_at: string;
+  downloaded_at: string | null;
+}
+
 // =====================================================
 // API リクエスト/レスポンス
 // =====================================================
