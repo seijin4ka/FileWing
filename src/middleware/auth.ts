@@ -22,8 +22,43 @@ interface AccessJwtPayload {
 }
 
 /**
+ * JWKSレスポンスの型定義
+ */
+interface JwksResponse {
+  keys: Array<{
+    kid: string;
+    kty: string;
+    alg: string;
+    use: string;
+    e: string;
+    n: string;
+  }>;
+  public_cert: {
+    kid: string;
+    cert: string;
+  };
+  public_certs: Array<{
+    kid: string;
+    cert: string;
+  }>;
+}
+
+/**
+ * JWTヘッダーの型定義
+ */
+interface JwtHeader {
+  alg: string;
+  kid: string;
+  typ: string;
+}
+
+// 公開鍵のキャッシュ（メモリ内）
+const keyCache = new Map<string, { key: CryptoKey; expires: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1時間
+
+/**
  * 認証ミドルウェア
- * - 本番環境: Cloudflare AccessのJWTを検証
+ * - 本番環境: Cloudflare AccessのJWTを検証（署名検証含む）
  * - 開発環境: SKIP_AUTH=trueでスキップ可能
  */
 export async function authMiddleware(
@@ -33,8 +68,9 @@ export async function authMiddleware(
   const env = c.env;
 
   // 開発環境での認証スキップ
+  // 警告: 本番環境では必ずSKIP_AUTH=falseにすること
   if (env.SKIP_AUTH === 'true') {
-    // テスト用のダミーユーザー
+    console.warn('警告: 認証がスキップされています（開発モード）');
     const testUser = await findOrCreateUser(c.env.DB, 'test@example.com', 'テストユーザー');
     c.set('user', { email: testUser.email, name: testUser.name || undefined });
     c.set('userId', testUser.id);
@@ -51,7 +87,7 @@ export async function authMiddleware(
   }
 
   try {
-    // JWTの検証
+    // JWTの検証（署名検証含む）
     const payload = await verifyAccessToken(
       cfAccessJwt,
       env.ACCESS_TEAM_NAME,
@@ -75,15 +111,14 @@ export async function authMiddleware(
     c.set('userId', user.id);
 
     return next();
-  } catch (error) {
-    console.error('認証エラー:', error);
+  } catch (_error) {
+    // エラー詳細はログに出力しない（セキュリティ対策）
     return c.json({ error: '認証に失敗しました' }, 401);
   }
 }
 
 /**
- * Cloudflare AccessのJWTを検証
- * 注意: 完全な検証にはCloudflare Accessの公開鍵を取得する必要がある
+ * Cloudflare AccessのJWTを検証（署名検証含む）
  */
 async function verifyAccessToken(
   token: string,
@@ -91,20 +126,23 @@ async function verifyAccessToken(
   expectedAud?: string
 ): Promise<AccessJwtPayload | null> {
   try {
-    // JWTをデコード（Base64）
+    // JWTの構造を確認
     const parts = token.split('.');
     if (parts.length !== 3) {
       return null;
     }
 
-    const payloadBase64 = parts[1];
-    const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+    // ヘッダーをデコード
+    const headerJson = base64UrlDecode(parts[0]);
+    const header = JSON.parse(headerJson) as JwtHeader;
+
+    // ペイロードをデコード
+    const payloadJson = base64UrlDecode(parts[1]);
     const payload = JSON.parse(payloadJson) as AccessJwtPayload;
 
     // 有効期限チェック
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp < now) {
-      console.error('トークンの有効期限が切れています');
       return null;
     }
 
@@ -112,26 +150,149 @@ async function verifyAccessToken(
     if (teamName) {
       const expectedIss = `https://${teamName}.cloudflareaccess.com`;
       if (payload.iss !== expectedIss) {
-        console.error('発行者が一致しません:', payload.iss);
+        return null;
+      }
+
+      // 署名検証（teamNameが指定されている場合のみ）
+      const isValid = await verifySignature(token, teamName, header.kid);
+      if (!isValid) {
         return null;
       }
     }
 
     // AUDチェック（指定されている場合）
     if (expectedAud && !payload.aud.includes(expectedAud)) {
-      console.error('AUDが一致しません:', payload.aud);
       return null;
     }
 
-    // 本番環境では公開鍵での署名検証も行うべき
-    // Cloudflare Accessの公開鍵は以下のエンドポイントから取得可能:
-    // https://{team-name}.cloudflareaccess.com/cdn-cgi/access/certs
-
     return payload;
-  } catch (error) {
-    console.error('トークンのデコードに失敗:', error);
+  } catch {
     return null;
   }
+}
+
+/**
+ * JWT署名を検証
+ */
+async function verifySignature(
+  token: string,
+  teamName: string,
+  kid: string
+): Promise<boolean> {
+  try {
+    // 公開鍵を取得（キャッシュから、またはJWKSエンドポイントから）
+    const publicKey = await getPublicKey(teamName, kid);
+    if (!publicKey) {
+      return false;
+    }
+
+    // JWTの各部分を取得
+    const parts = token.split('.');
+    const signatureInput = `${parts[0]}.${parts[1]}`;
+    const signature = base64UrlToArrayBuffer(parts[2]);
+
+    // 署名を検証
+    const encoder = new TextEncoder();
+    const data = encoder.encode(signatureInput);
+
+    const isValid = await crypto.subtle.verify(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      publicKey,
+      signature,
+      data
+    );
+
+    return isValid;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cloudflare Accessの公開鍵を取得
+ */
+async function getPublicKey(
+  teamName: string,
+  kid: string
+): Promise<CryptoKey | null> {
+  const cacheKey = `${teamName}:${kid}`;
+  const cached = keyCache.get(cacheKey);
+
+  // キャッシュが有効な場合は使用
+  if (cached && cached.expires > Date.now()) {
+    return cached.key;
+  }
+
+  try {
+    // JWKSエンドポイントから公開鍵を取得
+    const certsUrl = `https://${teamName}.cloudflareaccess.com/cdn-cgi/access/certs`;
+    const response = await fetch(certsUrl);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const jwks = (await response.json()) as JwksResponse;
+
+    // 指定されたkidに一致する鍵を検索
+    const jwk = jwks.keys.find((k) => k.kid === kid);
+    if (!jwk) {
+      return null;
+    }
+
+    // JWKをCryptoKeyにインポート
+    const publicKey = await crypto.subtle.importKey(
+      'jwk',
+      {
+        kty: jwk.kty,
+        e: jwk.e,
+        n: jwk.n,
+        alg: jwk.alg,
+        use: jwk.use,
+      },
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // キャッシュに保存
+    keyCache.set(cacheKey, {
+      key: publicKey,
+      expires: Date.now() + CACHE_TTL,
+    });
+
+    return publicKey;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Base64 URL デコード
+ */
+function base64UrlDecode(str: string): string {
+  // Base64 URL を標準 Base64 に変換
+  let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+
+  // パディングを追加
+  const padding = base64.length % 4;
+  if (padding) {
+    base64 += '='.repeat(4 - padding);
+  }
+
+  return atob(base64);
+}
+
+/**
+ * Base64 URL を ArrayBuffer に変換
+ */
+function base64UrlToArrayBuffer(str: string): ArrayBuffer {
+  const decoded = base64UrlDecode(str);
+  const bytes = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) {
+    bytes[i] = decoded.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
 /**
