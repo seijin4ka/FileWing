@@ -8,6 +8,16 @@
 // =====================================================
 
 /**
+ * Cloudflare Email Sendingバインディング型
+ * EmailMessageはcloudflare:emailモジュールから動的にインポートされるため、
+ * ここではanyを使用してバインディングの型を定義
+ */
+export interface SendEmailBinding {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  send(email: any): Promise<void>;
+}
+
+/**
  * Cloudflare Workers環境バインディング
  */
 export interface Env {
@@ -15,8 +25,8 @@ export interface Env {
   R2_BUCKET: R2Bucket;
   /** D1データベースバインディング */
   DB: D1Database;
-  /** Resend APIキー */
-  RESEND_API_KEY?: string;
+  /** Email Sendingバインディング */
+  EMAIL?: SendEmailBinding;
   /** 認証スキップフラグ（開発環境用） */
   SKIP_AUTH?: string;
   /** Cloudflare Accessチーム名 */
