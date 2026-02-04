@@ -12,6 +12,7 @@ import {
   formatCost,
   formatNumber,
 } from '../../services/costs';
+import { createTranslator } from '../../i18n';
 
 const costs = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -21,6 +22,8 @@ const costs = new Hono<{ Bindings: Env; Variables: Variables }>();
  */
 costs.get('/', async (c) => {
   const user = c.get('user');
+  const lang = c.get('lang') || 'ja';
+  const { get } = createTranslator(lang);
 
   // システム全体の使用量を取得
   const usage = await getSystemUsageStats(c.env.DB);
@@ -196,7 +199,7 @@ costs.get('/', async (c) => {
     </div>
   `;
 
-  return c.html(layout({ title: 'コスト見積もり', user }, content));
+  return c.html(layout({ title: get('nav.costs'), user, lang }, content));
 });
 
 /**
