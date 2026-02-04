@@ -39,14 +39,7 @@ files.post('/', async (c) => {
     // File型にキャスト
     const file = formFile as File;
 
-    // ファイルサイズ制限（100MB）
-    const maxSize = 100 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return c.json(
-        { success: false, error: 'ファイルサイズは100MB以下にしてください' },
-        400
-      );
-    }
+    // R2はファイルサイズ無制限のため、制限チェックは不要
 
     // ファイルデータを読み込み
     const arrayBuffer = await file.arrayBuffer();

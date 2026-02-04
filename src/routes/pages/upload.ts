@@ -32,7 +32,7 @@ upload.get('/', async (c) => {
       <!-- アップロードフォーム -->
       <form id="upload-form" class="space-y-6">
         <!-- ファイル選択 -->
-        ${fileDropzone({ name: 'file', accept: '*/*', maxSize: '100MB' })}
+        ${fileDropzone({ name: 'file', accept: '*/*' })}
 
         <!-- オプション設定 -->
         <div class="bg-white rounded-lg shadow-sm border p-6 space-y-4">
@@ -204,12 +204,7 @@ upload.get('/', async (c) => {
       }
 
       function handleFile(file) {
-        // ファイルサイズチェック（100MB）
-        if (file.size > 100 * 1024 * 1024) {
-          showToast('ファイルサイズは100MB以下にしてください', 'error');
-          return;
-        }
-
+        // R2はファイルサイズ無制限のため、制限チェックは不要
         selectedFile = file;
         document.getElementById('file-name').textContent = file.name;
         document.getElementById('file-size').textContent = formatFileSize(file.size);

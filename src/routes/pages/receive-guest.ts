@@ -94,7 +94,7 @@ receiveGuest.get('/:token', async (c) => {
                     <span class="text-primary-500 font-medium">クリックしてファイルを選択</span>
                     <span>またはドラッグ&ドロップ</span>
                   </div>
-                  <p class="text-xs text-gray-500">最大 ${link.max_file_size ? formatFileSize(link.max_file_size) : '100MB'}</p>
+                  <p class="text-xs text-gray-500">${link.max_file_size ? `最大 ${formatFileSize(link.max_file_size)}` : ''}</p>
                 </div>
               </div>
               <div id="file-preview" class="hidden">
@@ -188,7 +188,7 @@ receiveGuest.get('/:token', async (c) => {
 
     <script>
       let selectedFile = null;
-      const maxFileSize = ${link.max_file_size || 100 * 1024 * 1024};
+      const maxFileSize = ${link.max_file_size || 0};  // 0 = 無制限
 
       // ドラッグ&ドロップの設定
       const dropzone = document.getElementById('dropzone');
@@ -222,7 +222,8 @@ receiveGuest.get('/:token', async (c) => {
       }
 
       function handleFile(file) {
-        if (file.size > maxFileSize) {
+        // maxFileSize > 0 の場合のみサイズ制限チェック
+        if (maxFileSize > 0 && file.size > maxFileSize) {
           showError('ファイルサイズが大きすぎます');
           return;
         }
@@ -381,9 +382,8 @@ receiveGuest.post('/:token/upload', async (c) => {
 
     const file = formFile as File;
 
-    // ファイルサイズチェック
-    const maxSize = link.max_file_size || 100 * 1024 * 1024;
-    if (file.size > maxSize) {
+    // ファイルサイズチェック（max_file_sizeが設定されている場合のみ）
+    if (link.max_file_size && file.size > link.max_file_size) {
       return c.json({ success: false, error: 'ファイルサイズが大きすぎます' }, 400);
     }
 
