@@ -3,7 +3,7 @@
  * Cloudflare Workers Email Sending（Email Routing統合）を使用
  */
 
-import { createMimeMessage } from 'mimetext';
+import { createMimeMessage } from 'mimetext/browser';
 import type { SendEmailBinding } from '../types';
 
 export interface EmailOptions {
