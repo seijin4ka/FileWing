@@ -198,7 +198,7 @@ costs.get('/', async (c) => {
     </div>
   `;
 
-  return c.html(layout({ title: get('nav.costs'), user, lang }, content));
+  return c.html(layout({ title: get('nav.costs'), user, lang, currentUrl: c.req.url }, content));
 });
 
 /**

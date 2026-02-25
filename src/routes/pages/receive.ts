@@ -233,7 +233,7 @@ receive.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('receive.title'), user, lang }, content));
+  return c.html(layout({ title: get('receive.title'), user, lang, currentUrl: c.req.url }, content));
 });
 
 /**

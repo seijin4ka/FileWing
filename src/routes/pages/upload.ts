@@ -411,7 +411,7 @@ upload.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('upload.title'), user, lang }, content));
+  return c.html(layout({ title: get('upload.title'), user, lang, currentUrl: c.req.url }, content));
 });
 
 export default upload;

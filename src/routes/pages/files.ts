@@ -151,7 +151,7 @@ files.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('files.title'), user, lang }, content));
+  return c.html(layout({ title: get('files.title'), user, lang, currentUrl: c.req.url }, content));
 });
 
 /**
@@ -448,7 +448,7 @@ files.get('/:id', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: file.original_name, user, lang }, content));
+  return c.html(layout({ title: file.original_name, user, lang, currentUrl: c.req.url }, content));
 });
 
 /**

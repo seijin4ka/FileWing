@@ -19,13 +19,15 @@ export interface LayoutOptions {
   lang?: Language;
   /** 認証方式（ログアウトボタン表示制御用） */
   authMethod?: 'saml' | 'cloudflare-access' | 'skip';
+  /** 現在のURL（言語切り替え時にクエリパラメータを保持するため） */
+  currentUrl?: string;
 }
 
 /**
  * 共通HTMLレイアウト
  */
 export function layout(options: LayoutOptions, content: string): string {
-  const { title, user, bodyClass = '', hideHeader = false, lang = 'ja', authMethod } = options;
+  const { title, user, bodyClass = '', hideHeader = false, lang = 'ja', authMethod, currentUrl } = options;
   const { get } = createTranslator(lang);
 
   return `<!DOCTYPE html>
@@ -117,7 +119,7 @@ export function layout(options: LayoutOptions, content: string): string {
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen ${bodyClass}">
-  ${hideHeader ? '' : renderHeader(user, lang, authMethod)}
+  ${hideHeader ? '' : renderHeader(user, lang, authMethod, currentUrl)}
 
   <main class="container mx-auto px-4 py-8">
     ${content}
@@ -269,11 +271,26 @@ export function layout(options: LayoutOptions, content: string): string {
 function renderHeader(
   user?: { email: string; name?: string } | null,
   lang: Language = 'ja',
-  authMethod?: 'saml' | 'cloudflare-access' | 'skip'
+  authMethod?: 'saml' | 'cloudflare-access' | 'skip',
+  currentUrl?: string
 ): string {
   const { get } = createTranslator(lang);
   const otherLang = lang === 'ja' ? 'en' : 'ja';
   const otherLangName = LANGUAGE_NAMES[otherLang];
+
+  // 言語切り替えURLを生成（既存クエリパラメータを保持）
+  function buildLangUrl(targetLang: string): string {
+    if (!currentUrl) return `?lang=${targetLang}`;
+    try {
+      const url = new URL(currentUrl.startsWith('http') ? currentUrl : `http://localhost${currentUrl}`);
+      url.searchParams.set('lang', targetLang);
+      const pathname = url.pathname;
+      const search = url.search;
+      return pathname + search;
+    } catch {
+      return `?lang=${targetLang}`;
+    }
+  }
 
   // SAML認証の場合のみログアウトボタンを表示
   // Cloudflare Access認証の場合はCloudflare側でセッション管理されるため非表示
@@ -308,7 +325,7 @@ function renderHeader(
           </button>
           ` : ''}
           <!-- 言語切り替え -->
-          <a href="?lang=${otherLang}" class="text-sm text-primary-100 hover:text-white transition-colors">
+          <a href="${buildLangUrl(otherLang)}" class="text-sm text-primary-100 hover:text-white transition-colors">
             ${otherLangName}
           </a>
           ${user ? `

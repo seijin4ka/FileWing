@@ -153,7 +153,7 @@ dashboard.get('/', async (c) => {
 
   `;
 
-  return c.html(layout({ title: get('dashboard.title'), user, lang }, content));
+  return c.html(layout({ title: get('dashboard.title'), user, lang, currentUrl: c.req.url }, content));
 });
 
 /**
