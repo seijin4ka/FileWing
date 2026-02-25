@@ -173,9 +173,15 @@ receive.get('/', async (c) => {
 
       function copyCreatedUrl() {
         const urlInput = document.getElementById('created-url');
-        urlInput.select();
-        document.execCommand('copy');
-        showToast(i18n.linkCopied, 'success');
+        const text = urlInput.value;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(i18n.linkCopied, 'success');
+        }).catch(() => {
+          // フォールバック (HTTPS以外の環境)
+          urlInput.select();
+          document.execCommand('copy');
+          showToast(i18n.linkCopied, 'success');
+        });
       }
 
       function copyUrl(token) {

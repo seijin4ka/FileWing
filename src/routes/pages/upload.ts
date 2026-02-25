@@ -347,9 +347,15 @@ upload.get('/', async (c) => {
       // URLをコピー
       function copyUrl() {
         const urlInput = document.getElementById('download-url');
-        urlInput.select();
-        document.execCommand('copy');
-        showToast(i18n.linkCopied, 'success');
+        const text = urlInput.value;
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(i18n.linkCopied, 'success');
+        }).catch(() => {
+          // フォールバック (HTTPS以外の環境)
+          urlInput.select();
+          document.execCommand('copy');
+          showToast(i18n.linkCopied, 'success');
+        });
       }
 
       // リダイレクトタイマー
