@@ -174,9 +174,10 @@ download.get('/:token', async (c) => {
 
         try {
           const password = document.getElementById('password')?.value || '';
-          const url = '/d/${token}/download' + (password ? '?password=' + encodeURIComponent(password) : '');
+          const headers = {};
+          if (password) headers['X-Download-Password'] = password;
 
-          const response = await fetch(url);
+          const response = await fetch('/d/${token}/download', { headers });
 
           if (!response.ok) {
             const result = await response.json();

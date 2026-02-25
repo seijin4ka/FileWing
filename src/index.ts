@@ -43,6 +43,25 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 // ロギング
 app.use('*', logger());
 
+// セキュリティヘッダー
+app.use('*', async (c, next) => {
+  await next();
+
+  // ダウンロードレスポンスにはCSPを適用しない
+  const isDownload = c.req.path.startsWith('/d/') && c.req.path.endsWith('/download');
+
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('X-XSS-Protection', '1; mode=block');
+  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+  if (!isDownload) {
+    c.header('Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' data:; font-src 'self'; connect-src 'self'");
+  }
+});
+
 // 言語設定
 app.use('*', languageMiddleware);
 
@@ -86,7 +105,6 @@ app.route('/r', receiveGuest);
 
 // 認証ミドルウェアを適用
 app.use('/*', authMiddleware);
-app.use('/api/*', authMiddleware);
 
 // API ルート
 app.route('/api/files', filesApi);

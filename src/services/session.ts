@@ -104,7 +104,7 @@ export function createSessionCookie(
  * セッションCookieを削除（ログアウト用）
  */
 export function createLogoutCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax`;
+  return `${SESSION_COOKIE_NAME}=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax`;
 }
 
 /**
