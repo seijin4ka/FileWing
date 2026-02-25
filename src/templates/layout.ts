@@ -250,6 +250,14 @@ export function layout(options: LayoutOptions, content: string): string {
         });
       });
     })();
+
+    // モバイルメニューを切り替える
+    function toggleMobileMenu() {
+      const menu = document.getElementById('mobile-menu');
+      if (menu) {
+        menu.classList.toggle('hidden');
+      }
+    }
   </script>
 </body>
 </html>`;
@@ -291,6 +299,14 @@ function renderHeader(
           ` : ''}
         </div>
         <div class="flex items-center space-x-4">
+          <!-- モバイルメニューボタン -->
+          ${user ? `
+          <button id="mobile-menu-btn" class="md:hidden text-white p-2 hover:bg-primary-600 rounded-lg transition-colors" onclick="toggleMobileMenu()">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          ` : ''}
           <!-- 言語切り替え -->
           <a href="?lang=${otherLang}" class="text-sm text-primary-100 hover:text-white transition-colors">
             ${otherLangName}
@@ -309,6 +325,19 @@ function renderHeader(
         </div>
       </div>
     </div>
+    <!-- モバイルナビゲーションメニュー -->
+    ${user ? `
+    <div id="mobile-menu" class="hidden md:hidden bg-primary-600 border-t border-primary-400">
+      <nav class="container mx-auto px-4 py-3 flex flex-col space-y-2">
+        <a href="/" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.dashboard')}</a>
+        <a href="/upload" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.upload')}</a>
+        <a href="/receive" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.receive')}</a>
+        <a href="/files" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.files')}</a>
+        <a href="/links" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.links')}</a>
+        <a href="/costs" class="block px-3 py-2 text-primary-100 hover:text-white hover:bg-primary-500 rounded-lg transition-colors">${get('nav.costs')}</a>
+      </nav>
+    </div>
+    ` : ''}
   </header>`;
 }
 
