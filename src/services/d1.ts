@@ -1100,3 +1100,50 @@ export async function getUserUsageStats(
     downloadsThisMonth: stats?.downloads_this_month || 0,
   };
 }
+
+/**
+ * ユーザーのファイルをリンク統計と共に取得（N+1 解消）
+ */
+export async function getFilesWithLinkStatsByUser(
+  db: D1Database,
+  userId: number
+): Promise<(FileRecord & { active_link_count: number; total_downloads: number })[]> {
+  const result = await db
+    .prepare(`
+      SELECT f.*,
+             COUNT(CASE WHEN dl.disabled_at IS NULL AND dl.expires_at > datetime('now') THEN 1 END) as active_link_count,
+             COALESCE(SUM(dl.download_count), 0) as total_downloads
+      FROM files f
+      LEFT JOIN download_links dl ON dl.file_id = f.id
+      WHERE f.user_id = ? AND f.deleted_at IS NULL
+      GROUP BY f.id
+      ORDER BY f.created_at DESC
+    `)
+    .bind(userId)
+    .all<FileRecord & { active_link_count: number; total_downloads: number }>();
+
+  return result.results;
+}
+
+/**
+ * ユーザーの受信リンクを統計と共に取得（N+1 解消）
+ */
+export async function getReceiveLinksWithStatsByUser(
+  db: D1Database,
+  userId: number
+): Promise<(ReceiveLink & { received_file_count: number })[]> {
+  const result = await db
+    .prepare(`
+      SELECT rl.*,
+             COUNT(CASE WHEN rf.id IS NOT NULL THEN 1 END) as received_file_count
+      FROM receive_links rl
+      LEFT JOIN received_files rf ON rf.link_id = rl.id
+      WHERE rl.user_id = ? AND rl.deleted_at IS NULL
+      GROUP BY rl.id
+      ORDER BY rl.created_at DESC
+    `)
+    .bind(userId)
+    .all<ReceiveLink & { received_file_count: number }>();
+
+  return result.results;
+}
