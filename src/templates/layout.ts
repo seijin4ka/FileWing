@@ -127,6 +127,9 @@ export function layout(options: LayoutOptions, content: string): string {
   <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
   <script>
+    // HTMLエスケープ
+    function escHtml(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');}
+
     // トースト通知を表示
     function showToast(message, type = 'info') {
       const container = document.getElementById('toast-container');

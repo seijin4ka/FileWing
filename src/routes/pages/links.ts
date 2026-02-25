@@ -191,7 +191,7 @@ links.get('/', async (c) => {
                   <h4 class="text-sm font-medium text-gray-900 mb-2">\${i18n.recipients}</h4>
                   <div class="space-y-1">
                     \${stats.recipients.map(r => \`
-                      <div class="text-sm text-gray-600">\${r.email} <span class="text-gray-400">(\${formatDate(r.sent_at)})</span></div>
+                      <div class="text-sm text-gray-600">\${escHtml(r.email)} <span class="text-gray-400">(\${formatDate(r.sent_at)})</span></div>
                     \`).join('')}
                   </div>
                 </div>
@@ -213,8 +213,8 @@ links.get('/', async (c) => {
                         \${stats.recent_logs.map(log => \`
                           <tr class="border-b">
                             <td class="py-2">\${formatDate(log.downloaded_at)}</td>
-                            <td class="py-2">\${log.ip_address || '-'}</td>
-                            <td class="py-2 truncate max-w-xs" title="\${log.user_agent || ''}">\${log.user_agent || '-'}</td>
+                            <td class="py-2">\${escHtml(log.ip_address) || '-'}</td>
+                            <td class="py-2 truncate max-w-xs" title="\${escHtml(log.user_agent || '')}">\${escHtml(log.user_agent) || '-'}</td>
                           </tr>
                         \`).join('')}
                       </tbody>

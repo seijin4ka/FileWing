@@ -60,7 +60,7 @@ dashboard.get('/', async (c) => {
       <!-- 統計カード -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${statCard({ label: get('dashboard.stats.totalFiles'), value: stats.total_files, icon: icons.file })}
-        ${statCard({ label: get('dashboard.stats.activeLinks'), value: formatFileSize(stats.total_size), icon: icons.storage })}
+        ${statCard({ label: get('dashboard.stats.totalStorage'), value: formatFileSize(stats.total_size), icon: icons.storage })}
         ${statCard({ label: get('dashboard.stats.activeLinks'), value: stats.active_links, icon: icons.link })}
         ${statCard({ label: get('dashboard.stats.totalDownloads'), value: stats.total_downloads, icon: icons.download })}
       </div>

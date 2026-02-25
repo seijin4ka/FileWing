@@ -50,6 +50,7 @@ export const translations = {
       welcome: 'ようこそ',
       stats: {
         totalFiles: '総ファイル数',
+        totalStorage: '総ストレージ',
         activeLinks: 'アクティブなリンク',
         totalDownloads: 'ダウンロード数',
         receivedFiles: '受信ファイル数',
@@ -370,6 +371,7 @@ export const translations = {
       welcome: 'Welcome',
       stats: {
         totalFiles: 'Total Files',
+        totalStorage: 'Total Storage',
         activeLinks: 'Active Links',
         totalDownloads: 'Downloads',
         receivedFiles: 'Received Files',

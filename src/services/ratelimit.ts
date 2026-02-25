@@ -120,7 +120,7 @@ export async function cleanupOldAttempts(db: D1Database): Promise<number> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const result = await db
-    .prepare(`DELETE FROM password_attempts WHERE created_at < ?`)
+    .prepare(`DELETE FROM password_attempts WHERE failed_at < ?`)
     .bind(cutoff)
     .run();
 

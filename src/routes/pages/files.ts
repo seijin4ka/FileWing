@@ -106,7 +106,7 @@ files.get('/', async (c) => {
                         </div>
                         <div class="ml-4">
                           <div class="text-sm font-medium text-gray-900">${escapeHtml(file.original_name)}</div>
-                          <div class="text-sm text-gray-500">${file.mime_type}</div>
+                          <div class="text-sm text-gray-500">${escapeHtml(file.mime_type)}</div>
                         </div>
                       </div>
                     </td>
@@ -217,7 +217,7 @@ files.get('/:id', async (c) => {
               <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500">
                 <span>${formatFileSize(file.size)}</span>
                 <span>•</span>
-                <span>${file.mime_type}</span>
+                <span>${escapeHtml(file.mime_type)}</span>
                 <span>•</span>
                 <span>${localDateTime(file.created_at)}</span>
               </div>
@@ -386,7 +386,7 @@ files.get('/:id', async (c) => {
                   <h4 class="text-sm font-medium text-gray-900 mb-2">送信先</h4>
                   <div class="space-y-1">
                     \${stats.recipients.map(r => \`
-                      <div class="text-sm text-gray-600">\${r.email} <span class="text-gray-400">(\${formatDate(r.sent_at)})</span></div>
+                      <div class="text-sm text-gray-600">\${escHtml(r.email)} <span class="text-gray-400">(\${formatDate(r.sent_at)})</span></div>
                     \`).join('')}
                   </div>
                 </div>
@@ -408,8 +408,8 @@ files.get('/:id', async (c) => {
                         \${stats.recent_logs.map(log => \`
                           <tr class="border-b">
                             <td class="py-2">\${formatDate(log.downloaded_at)}</td>
-                            <td class="py-2">\${log.ip_address || '-'}</td>
-                            <td class="py-2 truncate max-w-xs" title="\${log.user_agent || ''}">\${log.user_agent || '-'}</td>
+                            <td class="py-2">\${escHtml(log.ip_address) || '-'}</td>
+                            <td class="py-2 truncate max-w-xs" title="\${escHtml(log.user_agent || '')}">\${escHtml(log.user_agent) || '-'}</td>
                           </tr>
                         \`).join('')}
                       </tbody>
