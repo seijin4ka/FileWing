@@ -26,23 +26,17 @@ download.get('/:token', async (c) => {
 
   // 無効なリンクの場合
   if (!linkWithFile) {
-    const errorTitle = lang === 'ja' ? 'リンクが無効です' : 'Invalid Link';
-    const errorMessage = lang === 'ja' ? 'このリンクは無効か期限切れです' : 'This link is invalid or expired';
-    const errorReasons = lang === 'ja'
-      ? [
-          'リンクの有効期限が切れている可能性があります',
-          'リンクが無効化されている可能性があります',
-          '最大ダウンロード回数に達した可能性があります',
-        ]
-      : [
-          'The link may have expired',
-          'The link may have been disabled',
-          'Maximum download count may have been reached',
-        ];
+    const errorTitle = get('download.invalidLink');
+    const errorMessage = get('download.invalidLinkMsg');
+    const errorReasons = [
+      get('download.invalidLinkReason1'),
+      get('download.invalidLinkReason2'),
+      get('download.invalidLinkReason3'),
+    ];
     return c.html(
       layout(
         { title: errorTitle, hideHeader: true, lang },
-        renderErrorPage(errorMessage, errorReasons, lang === 'ja' ? '問題が解決しない場合は、ファイルの送信者にお問い合わせください。' : 'If the issue persists, please contact the file sender.')
+        renderErrorPage(errorMessage, errorReasons, get('download.contactSender'))
       )
     );
   }
@@ -67,7 +61,7 @@ download.get('/:token', async (c) => {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
           </div>
-          <h1 class="text-2xl font-bold text-gray-900">ファイルをダウンロード</h1>
+          <h1 class="text-2xl font-bold text-gray-900">${get('download.title')}</h1>
         </div>
 
         <!-- ファイル情報カード -->
@@ -95,7 +89,7 @@ download.get('/:token', async (c) => {
                   <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
-                  有効期限
+                  ${get('download.expiresAt')}
                 </span>
                 ${localDateTime(expires_at)}
               </div>
@@ -105,9 +99,9 @@ download.get('/:token', async (c) => {
                   <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                   </svg>
-                  残りダウンロード回数
+                  ${get('download.remainingDownloads')}
                 </span>
-                <span>${remainingDownloads} 回</span>
+                <span>${remainingDownloads}${get('download.times') ? ' ' + get('download.times') : ''}</span>
               </div>
               ` : ''}
               ${requiresPassword ? `
@@ -115,7 +109,7 @@ download.get('/:token', async (c) => {
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
                 </svg>
-                このファイルはパスワードで保護されています
+                ${get('download.passwordProtected')}
               </div>
               ` : ''}
             </div>
@@ -124,13 +118,13 @@ download.get('/:token', async (c) => {
             <form id="download-form" class="space-y-4">
               ${requiresPassword ? `
               <div>
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">${get('download.password')}</label>
                 <input
                   type="password"
                   id="password"
                   name="password"
                   required
-                  placeholder="パスワードを入力"
+                  placeholder="${get('download.passwordPlaceholder')}"
                   class="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 />
               </div>
@@ -144,7 +138,7 @@ download.get('/:token', async (c) => {
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
-                ダウンロード
+                ${get('download.downloadButton')}
               </button>
             </form>
 
@@ -162,6 +156,11 @@ download.get('/:token', async (c) => {
     </div>
 
     <script>
+      const i18n = ${JSON.stringify({
+        downloadFailed: get('download.downloadFailed'),
+        downloadComplete: get('download.downloadComplete'),
+      })};
+
       document.getElementById('download-form').addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -182,7 +181,7 @@ download.get('/:token', async (c) => {
 
           if (!response.ok) {
             const result = await response.json();
-            throw new Error(result.error || 'ダウンロードに失敗しました');
+            throw new Error(result.error || i18n.downloadFailed);
           }
 
           // ファイルをダウンロード
@@ -197,7 +196,7 @@ download.get('/:token', async (c) => {
           a.remove();
 
           // 成功メッセージ
-          btn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>ダウンロード完了';
+          btn.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>' + i18n.downloadComplete;
           btn.classList.remove('bg-primary-600', 'hover:bg-primary-700');
           btn.classList.add('bg-green-600');
 
