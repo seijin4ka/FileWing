@@ -5,7 +5,8 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../types';
-import { layout, formatFileSize, localDateTime, escapeHtml, escapeJsString } from '../../templates/layout';
+import { layout, formatFileSize, localDateTime, escapeHtml, escapeJsString, renderErrorPage } from '../../templates/layout';
+import { getFileIcon } from '../../templates/components/card';
 import { getValidLinkByToken } from '../../services/d1';
 import { createTranslator } from '../../i18n';
 
@@ -41,7 +42,7 @@ download.get('/:token', async (c) => {
     return c.html(
       layout(
         { title: errorTitle, hideHeader: true, lang },
-        renderErrorPage(errorMessage, errorReasons)
+        renderErrorPage(errorMessage, errorReasons, lang === 'ja' ? '問題が解決しない場合は、ファイルの送信者にお問い合わせください。' : 'If the issue persists, please contact the file sender.')
       )
     );
   }
@@ -75,7 +76,7 @@ download.get('/:token', async (c) => {
             <!-- ファイル情報 -->
             <div class="flex items-center space-x-4 mb-6">
               <div class="flex-shrink-0 h-14 w-14 bg-gray-100 rounded-lg flex items-center justify-center">
-                ${getFileIcon(file.mime_type)}
+                ${getFileIcon(file.mime_type, 'w-7 h-7')}
               </div>
               <div class="flex-1 min-w-0">
                 <h2 class="text-lg font-medium text-gray-900 truncate">${escapeHtml(file.original_name)}</h2>
@@ -217,61 +218,4 @@ download.get('/:token', async (c) => {
 
   return c.html(layout({ title: get('download.title'), hideHeader: true, bodyClass: 'bg-gray-100', lang }, content));
 });
-
-/**
- * エラーページをレンダリング
- */
-function renderErrorPage(title: string, reasons: string[]): string {
-  return `
-    <div class="min-h-screen flex items-center justify-center py-12 px-4">
-      <div class="max-w-md w-full text-center">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
-          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-        </div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-4">${title}</h1>
-        <div class="bg-white rounded-lg shadow-sm border p-6 text-left">
-          <p class="text-gray-600 mb-4">考えられる原因:</p>
-          <ul class="space-y-2 text-sm text-gray-500">
-            ${reasons.map((r) => `<li class="flex items-start"><span class="mr-2">•</span>${r}</li>`).join('')}
-          </ul>
-        </div>
-        <p class="mt-6 text-sm text-gray-500">
-          問題が解決しない場合は、ファイルの送信者にお問い合わせください。
-        </p>
-      </div>
-    </div>
-  `;
-}
-
-/**
- * ファイルタイプに応じたアイコン
- */
-function getFileIcon(mimeType: string): string {
-  const type = mimeType.split('/')[0];
-
-  if (type === 'image') {
-    return `<svg class="w-7 h-7 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-    </svg>`;
-  }
-
-  if (mimeType === 'application/pdf') {
-    return `<svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-    </svg>`;
-  }
-
-  if (mimeType.includes('zip') || mimeType.includes('compressed')) {
-    return `<svg class="w-7 h-7 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
-    </svg>`;
-  }
-
-  return `<svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-  </svg>`;
-}
-
 export default download;

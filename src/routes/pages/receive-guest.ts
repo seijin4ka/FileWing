@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../types';
-import { layout, localDateTime, escapeHtml } from '../../templates/layout';
+import { layout, localDateTime, escapeHtml, formatFileSize, renderErrorPage } from '../../templates/layout';
 import {
   getValidReceiveLinkByToken,
   getReceivedFileCount,
@@ -428,43 +428,4 @@ receiveGuest.post('/:token/upload', async (c) => {
     return c.json({ success: false, error: 'アップロードに失敗しました' }, 500);
   }
 });
-
-/**
- * エラーページをレンダリング
- */
-function renderErrorPage(title: string, reasons: string[]): string {
-  return `
-    <div class="min-h-screen flex items-center justify-center py-12 px-4">
-      <div class="max-w-md w-full text-center">
-        <div class="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-6">
-          <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-          </svg>
-        </div>
-        <h1 class="text-2xl font-bold text-gray-900 mb-4">${title}</h1>
-        <div class="bg-white rounded-lg shadow-sm border p-6 text-left">
-          <p class="text-gray-600 mb-4">考えられる原因:</p>
-          <ul class="space-y-2 text-sm text-gray-500">
-            ${reasons.map((r) => `<li class="flex items-start"><span class="mr-2">•</span>${r}</li>`).join('')}
-          </ul>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-/**
- * ファイルサイズをフォーマット
- */
-function formatFileSize(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let unitIndex = 0;
-  let size = bytes;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
-}
-
 export default receiveGuest;

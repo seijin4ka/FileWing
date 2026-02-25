@@ -8,6 +8,7 @@ import type { Env, Variables } from '../../types';
 import {
   uploadFile,
   generateR2Key,
+  deleteFile,
 } from '../../services/r2';
 import {
   createFile,
@@ -199,8 +200,8 @@ files.delete('/:id', async (c) => {
       return c.json({ success: false, error: 'ファイルの削除に失敗しました' }, 500);
     }
 
-    // R2からも削除（オプション：物理削除する場合）
-    // await deleteR2File(c.env.R2_BUCKET, file.r2_key);
+    // R2からも削除
+    await deleteFile(c.env.R2_BUCKET, file.r2_key);
 
     return c.json({ success: true });
   } catch (error) {

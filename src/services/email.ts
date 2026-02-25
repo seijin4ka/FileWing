@@ -5,6 +5,7 @@
 
 import { createMimeMessage } from 'mimetext/browser';
 import type { SendEmailBinding } from '../types';
+import { escapeHtml } from '../templates/layout';
 
 export interface EmailOptions {
   /** Email Sendingバインディング */
@@ -210,34 +211,6 @@ ${downloadUrl}
 `;
 
   return text;
-}
-
-/**
- * HTMLエスケープ
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-/**
- * ファイルサイズを人間が読みやすい形式にフォーマット
- */
-export function formatFileSize(bytes: number): string {
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let unitIndex = 0;
-  let size = bytes;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-
-  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
 /**

@@ -6,11 +6,11 @@
 import { Hono } from 'hono';
 import type { Env, Variables, SendEmailRequest } from '../../types';
 import { getLinkById, getFileById, addLinkRecipients } from '../../services/d1';
+import { formatFileSize } from '../../templates/layout';
 import {
   sendEmailToMultiple,
   generateDownloadNotificationHtml,
   generateDownloadNotificationText,
-  formatFileSize,
   formatDateTime,
 } from '../../services/email';
 

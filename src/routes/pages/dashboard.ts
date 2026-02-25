@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables, Language } from '../../types';
-import { layout, formatFileSize, localTime } from '../../templates/layout';
+import { layout, formatFileSize, localTime, escapeHtml } from '../../templates/layout';
 import { statCard, icons } from '../../templates/components/card';
 import { linkButton } from '../../templates/components/button';
 import { getUserStats, getRecentActivity, getSystemUsageStats } from '../../services/d1';
@@ -198,18 +198,5 @@ function renderActivityItem(
     </div>
   `;
 }
-
-/**
- * HTMLエスケープ
- */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 
 export default dashboard;
