@@ -10,10 +10,9 @@ import { button } from '../../templates/components/button';
 import { badge } from '../../templates/components/table';
 import { icons } from '../../templates/components/card';
 import {
-  getReceiveLinksByUser,
   getReceiveLinkById,
   getReceivedFilesByLink,
-  getReceivedFileCount,
+  getReceiveLinksWithStatsByUser,
 } from '../../services/d1';
 import { createTranslator } from '../../i18n';
 
@@ -29,17 +28,14 @@ receive.get('/', async (c) => {
   const lang = c.get('lang') || 'ja';
   const { get } = createTranslator(lang);
 
-  // 受信リンク一覧を取得
-  const links = await getReceiveLinksByUser(c.env.DB, userId);
+  // 受信リンク一覧を統計と共に取得（N+1解消）
+  const linksWithStatsBase = await getReceiveLinksWithStatsByUser(c.env.DB, userId);
 
-  // 各リンクのファイル数を取得
-  const linksWithStats = await Promise.all(
-    links.map(async (link) => {
-      const fileCount = await getReceivedFileCount(c.env.DB, link.id);
-      const isActive = !link.disabled_at && new Date(link.expires_at) > new Date();
-      return { ...link, file_count: fileCount, is_active: isActive };
-    })
-  );
+  // is_active フラグを追加（表示用）
+  const linksWithStats = linksWithStatsBase.map((link) => ({
+    ...link,
+    is_active: !link.disabled_at && new Date(link.expires_at) > new Date(),
+  }));
 
   const baseUrl = new URL(c.req.url).origin;
 
@@ -472,7 +468,7 @@ receive.get('/:id', async (c) => {
  * リンクアイテムをレンダリング
  */
 function renderLinkItem(
-  link: ReceiveLink & { file_count: number; is_active: boolean },
+  link: ReceiveLink & { received_file_count: number; is_active: boolean },
   _baseUrl: string,
   get: (key: string) => string
 ): string {
@@ -489,7 +485,7 @@ function renderLinkItem(
             ${link.password_hash ? badge({ text: get('receive.password'), variant: 'info' }) : ''}
           </div>
           <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500">
-            <span>${get('receive.received')}: ${link.file_count}${get('receive.receivedCount')}</span>
+            <span>${get('receive.received')}: ${link.received_file_count}${get('receive.receivedCount')}</span>
             <span>•</span>
             <span>${get('receive.expires')}: ${localDateTime(link.expires_at)}</span>
           </div>

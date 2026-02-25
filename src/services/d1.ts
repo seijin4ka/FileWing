@@ -10,6 +10,8 @@ import type {
   LinkRecipient,
   DownloadLog,
   DownloadStats,
+  ReceiveLink,
+  ReceivedFile,
 } from '../types';
 
 // =====================================================
@@ -618,8 +620,6 @@ export async function getRecentActivity(
 // =====================================================
 // 受信リンク関連
 // =====================================================
-
-import type { ReceiveLink, ReceivedFile } from '../types';
 
 /**
  * 受信リンクを作成

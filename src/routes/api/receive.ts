@@ -7,15 +7,14 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../../types';
 import {
   createReceiveLink,
-  getReceiveLinksByUser,
   getReceiveLinkById,
   disableReceiveLink,
   getReceivedFilesByLink,
-  getReceivedFileCount,
   getReceivedFileById,
   markReceivedFileDownloaded,
   deleteReceivedFile,
   deleteReceiveLinkWithFiles,
+  getReceiveLinksWithStatsByUser,
 } from '../../services/d1';
 import { getFile, deleteFile } from '../../services/r2';
 import { hashPassword } from '../../utils/crypto';
@@ -81,16 +80,15 @@ receive.get('/receive-links', async (c) => {
   const userId = c.get('userId');
 
   try {
-    const links = await getReceiveLinksByUser(c.env.DB, userId);
+    // 受信リンク一覧を統計と共に取得（N+1解消）
+    const linksWithStatsBase = await getReceiveLinksWithStatsByUser(c.env.DB, userId);
 
-    // 各リンクのファイル数を取得
-    const linksWithCount = await Promise.all(
-      links.map(async (link) => {
-        const fileCount = await getReceivedFileCount(c.env.DB, link.id);
-        const isActive = !link.disabled_at && new Date(link.expires_at) > new Date();
-        return { ...link, file_count: fileCount, is_active: isActive };
-      })
-    );
+    // is_active フラグとプロパティ名を調整して返却
+    const linksWithCount = linksWithStatsBase.map((link) => ({
+      ...link,
+      file_count: link.received_file_count,
+      is_active: !link.disabled_at && new Date(link.expires_at) > new Date(),
+    }));
 
     return c.json({
       success: true,

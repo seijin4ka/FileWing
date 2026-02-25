@@ -10,8 +10,8 @@ import { button, linkButton } from '../../templates/components/button';
 import { badge } from '../../templates/components/table';
 import { icons, getFileIcon } from '../../templates/components/card';
 import {
-  getFilesByUser,
   getFileById,
+  getFilesWithLinkStatsByUser,
   getLinksByFile,
 } from '../../services/d1';
 import { createTranslator } from '../../i18n';
@@ -28,22 +28,10 @@ files.get('/', async (c) => {
   const lang = c.get('lang') || 'ja';
   const { get } = createTranslator(lang);
 
-  // ファイル一覧を取得
-  const fileList = await getFilesByUser(c.env.DB, userId);
+  // ファイル一覧をリンク統計と共に取得（N+1解消）
+  const filesWithStats = await getFilesWithLinkStatsByUser(c.env.DB, userId);
 
-  // 各ファイルのリンク数を取得
-  const filesWithStats = await Promise.all(
-    fileList.map(async (file) => {
-      const links = await getLinksByFile(c.env.DB, file.id);
-      const activeLinks = links.filter(
-        (link) => !link.disabled_at && new Date(link.expires_at) > new Date()
-      );
-      const totalDownloads = links.reduce((sum, l) => sum + l.download_count, 0);
-      return { ...file, activeLinks: activeLinks.length, totalDownloads };
-    })
-  );
-
-  const fileCountText = lang === 'ja' ? `${fileList.length} 件のファイル` : `${fileList.length} files`;
+  const fileCountText = lang === 'ja' ? `${filesWithStats.length} 件のファイル` : `${filesWithStats.length} files`;
   const noFilesDesc = lang === 'ja' ? '最初のファイルをアップロードしましょう' : 'Upload your first file';
   const activeText = lang === 'ja' ? '有効' : 'active';
   const noneText = lang === 'ja' ? 'なし' : 'none';
@@ -114,13 +102,13 @@ files.get('/', async (c) => {
                       ${formatFileSize(file.size)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                      ${file.activeLinks > 0
-                        ? badge({ text: `${file.activeLinks} ${activeText}`, variant: 'success' })
+                      ${file.active_link_count > 0
+                        ? badge({ text: `${file.active_link_count} ${activeText}`, variant: 'success' })
                         : badge({ text: noneText, variant: 'default' })
                       }
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${file.totalDownloads}${timesText ? ` ${timesText}` : ''}
+                      ${file.total_downloads}${timesText ? ` ${timesText}` : ''}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       ${localDateTime(file.created_at)}
@@ -267,7 +255,7 @@ files.get('/:id', async (c) => {
           </div>
         ` : `
           <div class="divide-y">
-            ${links.map((link) => renderLinkItem(link, baseUrl)).join('')}
+            ${links.map((link: DownloadLink) => renderLinkItem(link, baseUrl)).join('')}
           </div>
         `}
       </div>

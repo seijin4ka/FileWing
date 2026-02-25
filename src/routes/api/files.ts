@@ -12,11 +12,11 @@ import {
 } from '../../services/r2';
 import {
   createFile,
-  getFilesByUser,
   getFileById,
   softDeleteFile,
-  getLinksByFile,
   deleteLinksByFile,
+  getFilesWithLinkStatsByUser,
+  getLinksByFile,
 } from '../../services/d1';
 import { validateMimeType } from '../../utils/mime';
 
@@ -93,28 +93,12 @@ files.get('/', async (c) => {
   const userId = c.get('userId');
 
   try {
-    const fileList = await getFilesByUser(c.env.DB, userId);
-
-    // 各ファイルのリンク数を取得
-    const filesWithLinkCount = await Promise.all(
-      fileList.map(async (file) => {
-        const links = await getLinksByFile(c.env.DB, file.id);
-        const activeLinks = links.filter(
-          (link) =>
-            !link.disabled_at &&
-            new Date(link.expires_at) > new Date()
-        );
-        return {
-          ...file,
-          link_count: links.length,
-          active_link_count: activeLinks.length,
-        };
-      })
-    );
+    // ファイル一覧をリンク統計と共に取得（N+1解消）
+    const filesWithStats = await getFilesWithLinkStatsByUser(c.env.DB, userId);
 
     return c.json({
       success: true,
-      files: filesWithLinkCount,
+      files: filesWithStats,
     });
   } catch (error) {
     console.error('ファイル一覧取得エラー:', error);
