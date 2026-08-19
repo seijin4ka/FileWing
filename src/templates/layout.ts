@@ -18,7 +18,7 @@ export interface LayoutOptions {
   /** 言語設定 */
   lang?: Language;
   /** 認証方式（ログアウトボタン表示制御用） */
-  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip';
+  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip' | 'setup';
   /** 現在のURL（言語切り替え時にクエリパラメータを保持するため） */
   currentUrl?: string;
 }
@@ -271,7 +271,7 @@ export function layout(options: LayoutOptions, content: string): string {
 function renderHeader(
   user?: { email: string; name?: string } | null,
   lang: Language = 'ja',
-  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip',
+  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip' | 'setup',
   currentUrl?: string
 ): string {
   const { get } = createTranslator(lang);

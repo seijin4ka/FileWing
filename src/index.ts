@@ -10,6 +10,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import type { Env, Variables } from './types';
 import { authMiddleware } from './middleware/auth';
+import { ensureSchema } from './services/schema';
 import { languageMiddleware } from './middleware/language';
 import { createTranslator, DEFAULT_LANGUAGE } from './i18n';
 
@@ -31,6 +32,7 @@ import costs from './routes/pages/costs';
 import links from './routes/pages/links';
 import login from './routes/pages/login';
 import register from './routes/pages/register';
+import setup from './routes/pages/setup';
 
 // 認証ルート
 import auth from './routes/auth';
@@ -43,6 +45,15 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // ロギング
 app.use('*', logger());
+
+// スキーマ初期化
+// デプロイコマンドでマイグレーションを実行しなくても動作するよう、
+// D1にアクセスする前にテーブルの存在を保証する
+// （適用済みの場合はアイソレート内でキャッシュされ再実行されない）
+app.use('*', async (c, next) => {
+  await ensureSchema(c.env.DB);
+  return next();
+});
 
 // セキュリティヘッダー
 app.use('*', async (c, next) => {
@@ -83,7 +94,10 @@ app.use(
 // ログインページ
 app.route('/login', login);
 
-// 管理者登録ページ（ローカル認証で管理者が未登録の場合のみ表示）
+// 初期セットアップページ（認証方式が未設定の場合のみ表示）
+app.route('/setup', setup);
+
+// 管理者登録ページ（管理者が未登録の場合のみ表示）
 app.route('/register', register);
 
 // 認証ルート（SAML SSO）

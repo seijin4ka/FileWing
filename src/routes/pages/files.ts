@@ -15,7 +15,6 @@ import {
   getLinksByFile,
 } from '../../services/d1';
 import { createTranslator } from '../../i18n';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const files = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -152,7 +151,7 @@ files.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('files.title'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('files.title'), user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 /**
@@ -449,7 +448,7 @@ files.get('/:id', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: file.original_name, user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: file.original_name, user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 /**

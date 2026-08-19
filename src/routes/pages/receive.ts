@@ -15,7 +15,6 @@ import {
   getReceiveLinksWithStatsByUser,
 } from '../../services/d1';
 import { createTranslator } from '../../i18n';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const receive = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -234,7 +233,7 @@ receive.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('receive.title'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('receive.title'), user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 /**
@@ -468,7 +467,7 @@ receive.get('/:id', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: link.title || get('receive.linkDetails'), user, lang, authMethod: getAuthMethod_forTemplate(c.env) }, content));
+  return c.html(layout({ title: link.title || get('receive.linkDetails'), user, lang, authMethod: c.get('authMethod') }, content));
 });
 
 /**

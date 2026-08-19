@@ -60,7 +60,8 @@ src/
 │   ├── costs.ts          # コスト見積もり計算
 │   ├── ratelimit.ts      # レート制限（ブルートフォース対策）
 │   ├── session.ts        # セッションJWT管理
-│   ├── settings.ts       # アプリ設定（署名キーの自動生成・保存）
+│   ├── settings.ts       # アプリ設定（認証設定・署名キーをD1に保存）
+│   ├── schema.ts         # スキーマの自動適用（マイグレーションSQLを内蔵）
 │   └── saml/             # SAML SSO認証
 │       ├── index.ts      # SAMLサービス統合
 │       ├── types.ts      # SAML型定義
@@ -140,19 +141,38 @@ src/
 
 | AUTH_METHOD | 説明 | ログアウトボタン |
 |-------------|------|-----------------|
-| `local` | ローカル認証（管理者登録方式、既定値） | あり |
+| `local` | ローカル認証（管理者登録方式） | あり |
 | `saml` | SAML 2.0 SSO認証（Google Workspace等） | あり |
 | `cloudflare-access` | Cloudflare Access JWT認証 | なし（Cloudflare側で管理） |
 | `skip` | 認証スキップ（開発用） | なし |
 
-- **自動判定**: `AUTH_METHOD` 省略時は環境変数から自動判定
-  - `SKIP_AUTH=true` → skip
-  - SAML設定完全 → saml
-  - Cloudflare Access設定あり → cloudflare-access
-  - いずれにも該当しない場合 → **local**
-    （旧実装は skip にフォールバックしており、設定漏れで認証なしのまま
-      公開される状態だったため local に変更した）
-- **公開ルート**: `/d/:token`、`/r/:token`、`/login`、`/register`、`/auth/*` は認証不要
+- **判定順序** (`resolveAuthMethod`、非同期):
+  1. 環境変数（`AUTH_METHOD` / `SKIP_AUTH=true` / SAML設定完全 / Access設定あり）
+  2. 初期セットアップ画面で保存された設定（D1 `app_settings.auth_method`）
+  3. どちらも無い場合 → **`setup`**（初期セットアップ画面へリダイレクト）
+- 未設定時に `skip` へフォールバックすると認証なしで公開されるため、
+  フォールバックは必ずセットアップ画面とする
+- **公開ルート**: `/d/:token`、`/r/:token`、`/login`、`/setup`、`/register`、`/auth/*` は認証不要
+- 判定結果は `c.set('authMethod', ...)` でコンテキストに入れ、
+  各ページはこれをレイアウトに渡してログアウトボタンの表示を制御する
+
+#### 初期セットアップフロー
+認証方式が未設定の状態では全リクエストが `/setup` にリダイレクトされる。
+
+1. `/setup` で「管理者アカウントを作成」か「SAML SSOを設定」を選択
+2. ローカル認証 → `/register` で管理者を作成し、`auth_method = 'local'` を保存
+3. SAML → `/setup?mode=saml` のフォームから POST `/auth/setup/saml`
+   - SP Entity ID / ACS URL はリクエストURLのoriginから初期値を生成
+   - 証明書はPEMヘッダーと改行を除去してBase64本体のみ保存
+   - `auth_method = 'saml'` と各SAML設定をD1に保存
+   - 最初にSSOログインしたユーザーを管理者に昇格（`promoteFirstUserToAdmin`）
+4. セットアップ完了後は `/setup` も `/register` も `/login` にリダイレクトされる
+   - `/register` は認証方式が `setup` か `local` のときのみ受け付ける
+     （SAML設定済みの環境でローカル管理者を作られないようにするため）
+
+**設定の保存先**: 環境変数で設定できない項目はD1の `app_settings` に保存する
+（`src/services/settings.ts`）。これによりDeploy to Cloudflareボタン経由の
+デプロイだけで、画面から認証設定を完結できる。
 
 #### ローカル認証フロー（管理者登録方式）
 1. 未ログインでアクセス → 管理者未登録なら `/register` にリダイレクト
@@ -300,6 +320,18 @@ src/
 - **wrangler.toml**: 唯一の設定ファイル（機密情報なし、gitにコミット）
 - **wrangler.local.toml**: 任意。個別に上書きしたい場合のみ使用（gitignored）
 
+### スキーマの自動適用
+
+`migrations/*.sql` は wrangler の Text ルールでバンドルに取り込み、
+リクエスト処理の前に `ensureSchema()` が適用する（`src/services/schema.ts`）。
+
+- デプロイコマンドに `wrangler d1 migrations apply` を含めなくてもテーブルが作られる
+  （Deploy to Cloudflareボタンの既定のデプロイコマンドは `npx wrangler deploy` のため）
+- 全文が繰り返し実行可能（`CREATE ... IF NOT EXISTS`、
+  `duplicate column name` / `already exists` エラーは無視）
+- 適用済みかはアイソレート内の変数でキャッシュし、リクエストごとにDDLを流さない
+- **マイグレーションを追加したら `src/services/schema.ts` の `MIGRATIONS` に追記すること**
+
 ### リソースの自動プロビジョニング
 
 `d1_databases` / `r2_buckets` に **リソースIDを記載していません**。
@@ -318,11 +350,11 @@ named environment は使わず、`wrangler.toml` の `[vars]` 単体で運用す
 
 | 用途 | 設定 |
 |------|------|
-| デプロイ | `[vars]` の `AUTH_METHOD = "saml"`。シークレット未設定時はページを `/login` にリダイレクト、APIは401を返してフェイルクローズする |
+| デプロイ | `[vars]` に `AUTH_METHOD` を**設定しない**。初回アクセス時に `/setup` へ誘導され、画面から認証方式を選ぶ |
 | ローカル開発 | `npm run dev` が `--var AUTH_METHOD:skip --var SKIP_AUTH:true` を付与して認証をスキップする（wrangler.toml は変更しない） |
 
-`[vars]` の `AUTH_METHOD` を `"skip"` に書き換えないこと。
-書き換えたままデプロイすると認証なしで公開される。
+`[vars]` に `AUTH_METHOD = "skip"` を書かないこと。
+書いたままデプロイすると認証なしで公開される。
 
 ### デプロイボタン
 
@@ -330,9 +362,9 @@ README 冒頭の `https://deploy.workers.cloudflare.com/?url=<リポジトリURL
 Cloudflare は `package.json` の `deploy` スクリプトを自動検出して実行する。
 シークレットは `.dev.vars.example` に定義したものがデプロイ時に入力を求められる。
 
-**Workers Builds（GitHub連携）のデプロイコマンドは `npm run deploy` にすること。**
-`npx wrangler deploy` のままだとマイグレーションが実行されず、
-D1にテーブルが無いため全ページが500エラーになる。
+Workers Builds（GitHub連携）のデプロイコマンドは `npx wrangler deploy` のままでよい。
+スキーマ作成も認証設定もアプリ側で完結するため、
+デプロイコマンドに追加の処理を入れる必要はない。
 
 ## Email Sending設定
 

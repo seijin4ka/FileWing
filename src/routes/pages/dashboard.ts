@@ -11,7 +11,6 @@ import { linkButton } from '../../templates/components/button';
 import { getUserStats, getRecentActivity, getSystemUsageStats } from '../../services/d1';
 import { createTranslator } from '../../i18n';
 import { estimateCosts, formatCost } from '../../services/costs';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const dashboard = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -154,7 +153,7 @@ dashboard.get('/', async (c) => {
 
   `;
 
-  return c.html(layout({ title: get('dashboard.title'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('dashboard.title'), user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 /**

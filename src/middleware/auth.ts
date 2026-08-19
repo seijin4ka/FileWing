@@ -12,19 +12,26 @@
 import { Context, Next } from 'hono';
 import type { Env, Variables } from '../types';
 import { findOrCreateUser, findUserByEmail, hasAdminUser } from '../services/d1';
-import { getSessionSecret } from '../services/settings';
+import { getSessionSecret, getStoredAuthConfig } from '../services/settings';
 import {
   verifySessionToken,
   getSessionTokenFromCookie,
 } from '../services/session';
 
 /** 認証方式 */
-type AuthMethod = 'saml' | 'cloudflare-access' | 'local' | 'skip';
+export type AuthMethod =
+  | 'saml'
+  | 'cloudflare-access'
+  | 'local'
+  | 'skip'
+  /** 未設定。初期セットアップ画面へ誘導する */
+  | 'setup';
 
 /**
- * 認証方式を判定
+ * 環境変数だけで決まる認証方式を判定
+ * D1を読まずに判定できる場合のみ値を返す
  */
-function getAuthMethod(env: Env): AuthMethod {
+function getAuthMethodFromEnv(env: Env): AuthMethod | null {
   // AUTH_METHODが明示的に設定されている場合はそれを使用
   if (env.AUTH_METHOD) {
     const method = env.AUTH_METHOD.toLowerCase();
@@ -49,8 +56,7 @@ function getAuthMethod(env: Env): AuthMethod {
     env.SAML_IDP_SSO_URL &&
     env.SAML_IDP_ENTITY_ID &&
     env.SAML_CALLBACK_URL &&
-    env.SAML_IDP_CERT &&
-    env.SESSION_SECRET
+    env.SAML_IDP_CERT
   ) {
     return 'saml';
   }
@@ -60,10 +66,35 @@ function getAuthMethod(env: Env): AuthMethod {
     return 'cloudflare-access';
   }
 
-  // デフォルトはローカル認証
-  // 認証設定が何もない状態で 'skip' を返すと認証なしで公開されてしまうため、
-  // 管理者登録を要求する 'local' をフォールバックとする
-  return 'local';
+  return null;
+}
+
+/**
+ * 認証方式を判定
+ *
+ * 優先順位:
+ * 1. 環境変数（AUTH_METHOD / SKIP_AUTH / SAML設定 / Access設定）
+ * 2. 初期セットアップ画面で保存された設定（D1）
+ * 3. どちらも無い場合は 'setup'（初期セットアップ画面へ誘導）
+ *
+ * 未設定時に 'skip' を返すと認証なしで公開されてしまうため、
+ * フォールバックは必ずセットアップ画面とする。
+ */
+export async function resolveAuthMethod(
+  env: Env,
+  db: D1Database
+): Promise<AuthMethod> {
+  const fromEnv = getAuthMethodFromEnv(env);
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  const stored = await getStoredAuthConfig(db);
+  if (stored.authMethod === 'local' || stored.authMethod === 'saml') {
+    return stored.authMethod;
+  }
+
+  return 'setup';
 }
 
 /**
@@ -74,7 +105,10 @@ export async function authMiddleware(
   c: Context<{ Bindings: Env; Variables: Variables }>,
   next: Next
 ) {
-  const authMethod = getAuthMethod(c.env);
+  const authMethod = await resolveAuthMethod(c.env, c.env.DB);
+
+  // テンプレートからログアウトボタンの表示可否を判定するために保持
+  c.set('authMethod', authMethod);
 
   switch (authMethod) {
     case 'skip':
@@ -85,8 +119,10 @@ export async function authMiddleware(
       return samlAuthMiddleware(c, next);
     case 'local':
       return localAuthMiddleware(c, next);
+    case 'setup':
+      return redirectToSetup(c);
     default:
-      return skipAuthMiddleware(c, next);
+      return redirectToSetup(c);
   }
 }
 
@@ -182,11 +218,9 @@ async function samlAuthMiddleware(
 ) {
   const env = c.env;
 
-  // セッションシークレットが設定されていない場合はエラー
-  if (!env.SESSION_SECRET) {
-    console.error('SESSION_SECRET is not configured');
-    return redirectToLogin(c);
-  }
+  // セッションシークレットを取得
+  // 環境変数が未設定の場合はD1に保存された自動生成の値を使う
+  const sessionSecret = await getSessionSecret(env.DB, env.SESSION_SECRET);
 
   // セッションCookieからJWTを取得
   const cookieHeader = c.req.header('Cookie');
@@ -197,14 +231,16 @@ async function samlAuthMiddleware(
   }
 
   // JWTを検証
-  const payload = await verifySessionToken(token, env.SESSION_SECRET);
+  const payload = await verifySessionToken(token, sessionSecret);
 
   if (!payload) {
     return redirectToLogin(c, 'session');
   }
 
-  // ドメイン制限をチェック（設定されている場合）
-  if (env.ALLOWED_DOMAINS && !isDomainAllowed(payload.sub, env.ALLOWED_DOMAINS)) {
+  // ドメイン制限をチェック（環境変数、なければ初期セットアップで保存した設定）
+  const stored = await getStoredAuthConfig(env.DB);
+  const allowedDomains = env.ALLOWED_DOMAINS || stored.allowedDomains;
+  if (allowedDomains && !isDomainAllowed(payload.sub, allowedDomains)) {
     return redirectToLogin(c, 'domain');
   }
 
@@ -264,10 +300,13 @@ export function getAuthInfo(c: Context<{ Variables: Variables }>) {
 }
 
 /**
- * 現在の認証方式を取得（テンプレート用）
+ * 初期セットアップ画面へ誘導
  */
-export function getAuthMethod_forTemplate(env: Env): AuthMethod {
-  return getAuthMethod(env);
+function redirectToSetup(c: Context<{ Bindings: Env; Variables: Variables }>) {
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ success: false, error: '初期セットアップが完了していません' }, 401);
+  }
+  return c.redirect('/setup', 302);
 }
 
 // =====================================================

@@ -1,10 +1,33 @@
 /**
  * アプリケーション設定サービス
- * D1のapp_settingsテーブルに保存する設定値を扱う
+ *
+ * D1のapp_settingsテーブルに保存する設定値を扱う。
+ * 環境変数で設定できない項目（初期セットアップ画面で入力された
+ * 認証方式やSAML設定）はここに保存し、実行時に読み出す。
  */
 
-/** セッション署名キーを保存するキー名 */
-const SESSION_SECRET_KEY = 'session_secret';
+/** 設定キー */
+export const SETTING_KEYS = {
+  sessionSecret: 'session_secret',
+  authMethod: 'auth_method',
+  samlEntityId: 'saml_entity_id',
+  samlIdpSsoUrl: 'saml_idp_sso_url',
+  samlIdpEntityId: 'saml_idp_entity_id',
+  samlIdpCert: 'saml_idp_cert',
+  samlCallbackUrl: 'saml_callback_url',
+  allowedDomains: 'allowed_domains',
+} as const;
+
+/** D1に保存された認証設定 */
+export interface StoredAuthConfig {
+  authMethod?: string;
+  samlEntityId?: string;
+  samlIdpSsoUrl?: string;
+  samlIdpEntityId?: string;
+  samlIdpCert?: string;
+  samlCallbackUrl?: string;
+  allowedDomains?: string;
+}
 
 /**
  * app_settingsから値を取得
@@ -19,6 +42,117 @@ export async function getSetting(
     .first<{ value: string }>();
 
   return row?.value ?? null;
+}
+
+/**
+ * app_settingsに値を保存（既存の場合は上書き）
+ */
+export async function setSetting(
+  db: D1Database,
+  key: string,
+  value: string
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO app_settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+    )
+    .bind(key, value)
+    .run();
+}
+
+/**
+ * 認証関連の設定をまとめて取得
+ */
+export async function getStoredAuthConfig(
+  db: D1Database
+): Promise<StoredAuthConfig> {
+  const result = await db
+    .prepare('SELECT key, value FROM app_settings WHERE key != ?')
+    .bind(SETTING_KEYS.sessionSecret)
+    .all<{ key: string; value: string }>();
+
+  const map = new Map(result.results.map((row) => [row.key, row.value]));
+
+  return {
+    authMethod: map.get(SETTING_KEYS.authMethod),
+    samlEntityId: map.get(SETTING_KEYS.samlEntityId),
+    samlIdpSsoUrl: map.get(SETTING_KEYS.samlIdpSsoUrl),
+    samlIdpEntityId: map.get(SETTING_KEYS.samlIdpEntityId),
+    samlIdpCert: map.get(SETTING_KEYS.samlIdpCert),
+    samlCallbackUrl: map.get(SETTING_KEYS.samlCallbackUrl),
+    allowedDomains: map.get(SETTING_KEYS.allowedDomains),
+  };
+}
+
+/**
+ * 認証方式を保存
+ */
+export async function setAuthMethod(
+  db: D1Database,
+  method: 'local' | 'saml'
+): Promise<void> {
+  await setSetting(db, SETTING_KEYS.authMethod, method);
+}
+
+/**
+ * SAML設定を保存して認証方式をsamlに切り替える
+ */
+export async function saveSamlConfig(
+  db: D1Database,
+  config: {
+    entityId: string;
+    idpSsoUrl: string;
+    idpEntityId: string;
+    idpCert: string;
+    callbackUrl: string;
+    allowedDomains?: string;
+  }
+): Promise<void> {
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.samlEntityId, config.entityId),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.samlIdpSsoUrl, config.idpSsoUrl),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.samlIdpEntityId, config.idpEntityId),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.samlIdpCert, config.idpCert),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.samlCallbackUrl, config.callbackUrl),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.allowedDomains, config.allowedDomains || ''),
+    db
+      .prepare(
+        `INSERT INTO app_settings (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+      )
+      .bind(SETTING_KEYS.authMethod, 'saml'),
+  ]);
 }
 
 /**
@@ -38,7 +172,7 @@ export async function getSessionSecret(
     return envSecret;
   }
 
-  const existing = await getSetting(db, SESSION_SECRET_KEY);
+  const existing = await getSetting(db, SETTING_KEYS.sessionSecret);
   if (existing) {
     return existing;
   }
@@ -53,9 +187,9 @@ export async function getSessionSecret(
   // 挿入後に必ず保存済みの値を読み直す
   await db
     .prepare('INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)')
-    .bind(SESSION_SECRET_KEY, secret)
+    .bind(SETTING_KEYS.sessionSecret, secret)
     .run();
 
-  const stored = await getSetting(db, SESSION_SECRET_KEY);
+  const stored = await getSetting(db, SETTING_KEYS.sessionSecret);
   return stored ?? secret;
 }

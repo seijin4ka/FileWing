@@ -9,6 +9,7 @@ import type { Env, Variables } from '../../types';
 import { createTranslator, DEFAULT_LANGUAGE } from '../../i18n';
 import { escapeHtml } from '../../templates/layout';
 import { hasAdminUser } from '../../services/d1';
+import { resolveAuthMethod } from '../../middleware/auth';
 
 const register = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -19,6 +20,14 @@ const register = new Hono<{ Bindings: Env; Variables: Variables }>();
 register.get('/', async (c) => {
   const lang = c.get('lang') || DEFAULT_LANGUAGE;
   const { get } = createTranslator(lang);
+
+  // ローカル認証、または認証方式が未設定の場合のみ登録を受け付ける
+  // SAMLなど別の認証方式が設定済みの場合に
+  // ローカル管理者を作られないようにする
+  const authMethod = await resolveAuthMethod(c.env, c.env.DB);
+  if (authMethod !== 'setup' && authMethod !== 'local') {
+    return c.redirect('/login', 302);
+  }
 
   // 既に管理者が登録されている場合は登録を受け付けない
   if (await hasAdminUser(c.env.DB)) {

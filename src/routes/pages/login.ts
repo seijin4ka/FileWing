@@ -7,7 +7,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../../types';
 import { createTranslator, DEFAULT_LANGUAGE } from '../../i18n';
 import { escapeHtml } from '../../templates/layout';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
+import { resolveAuthMethod } from '../../middleware/auth';
 import { hasAdminUser } from '../../services/d1';
 
 const login = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -20,8 +20,13 @@ login.get('/', async (c) => {
   const lang = c.get('lang') || DEFAULT_LANGUAGE;
   const { get } = createTranslator(lang);
 
-  const authMethod = getAuthMethod_forTemplate(c.env);
+  const authMethod = await resolveAuthMethod(c.env, c.env.DB);
   const isLocalAuth = authMethod === 'local';
+
+  // 認証方式が未設定の場合は初期セットアップ画面へ
+  if (authMethod === 'setup') {
+    return c.redirect('/setup', 302);
+  }
 
   // ローカル認証で管理者が未登録の場合は、まず管理者登録を行う
   if (isLocalAuth && !(await hasAdminUser(c.env.DB))) {

@@ -9,7 +9,6 @@ import { layout } from '../../templates/layout';
 import { fileDropzone, select, input, textarea } from '../../templates/components/form';
 import { button } from '../../templates/components/button';
 import { createTranslator } from '../../i18n';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const upload = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -412,7 +411,7 @@ upload.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('upload.title'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('upload.title'), user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 export default upload;

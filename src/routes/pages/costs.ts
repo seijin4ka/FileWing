@@ -13,7 +13,6 @@ import {
   formatNumber,
 } from '../../services/costs';
 import { createTranslator } from '../../i18n';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const costs = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -199,7 +198,7 @@ costs.get('/', async (c) => {
     </div>
   `;
 
-  return c.html(layout({ title: get('nav.costs'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('nav.costs'), user, lang, authMethod: c.get('authMethod'), currentUrl: c.req.url }, content));
 });
 
 /**

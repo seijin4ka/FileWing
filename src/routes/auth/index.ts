@@ -9,9 +9,16 @@ import {
   createFirstAdminUser,
   findUserByEmail,
   hasAdminUser,
+  promoteFirstUserToAdmin,
 } from '../../services/d1';
-import { getSessionSecret } from '../../services/settings';
+import {
+  getSessionSecret,
+  getStoredAuthConfig,
+  saveSamlConfig,
+  setAuthMethod,
+} from '../../services/settings';
 import { hashPassword, verifyPassword } from '../../utils/crypto';
+import { resolveAuthMethod } from '../../middleware/auth';
 import {
   checkRateLimit,
   recordFailedAttempt,
@@ -36,24 +43,21 @@ const auth = new Hono<{ Bindings: Env; Variables: Variables }>();
 /**
  * SAML設定を環境変数から取得
  */
-function getSAMLConfig(env: Env): SAMLConfig | null {
-  if (
-    !env.SAML_ENTITY_ID ||
-    !env.SAML_IDP_SSO_URL ||
-    !env.SAML_IDP_ENTITY_ID ||
-    !env.SAML_CALLBACK_URL ||
-    !env.SAML_IDP_CERT
-  ) {
+async function getSAMLConfig(env: Env): Promise<SAMLConfig | null> {
+  // 初期セットアップ画面で保存した設定を読み、環境変数があればそちらを優先する
+  const stored = await getStoredAuthConfig(env.DB);
+
+  const entityId = env.SAML_ENTITY_ID || stored.samlEntityId;
+  const callbackUrl = env.SAML_CALLBACK_URL || stored.samlCallbackUrl;
+  const idpSsoUrl = env.SAML_IDP_SSO_URL || stored.samlIdpSsoUrl;
+  const idpEntityId = env.SAML_IDP_ENTITY_ID || stored.samlIdpEntityId;
+  const idpCert = env.SAML_IDP_CERT || stored.samlIdpCert;
+
+  if (!entityId || !callbackUrl || !idpSsoUrl || !idpEntityId || !idpCert) {
     return null;
   }
 
-  return {
-    entityId: env.SAML_ENTITY_ID,
-    callbackUrl: env.SAML_CALLBACK_URL,
-    idpSsoUrl: env.SAML_IDP_SSO_URL,
-    idpEntityId: env.SAML_IDP_ENTITY_ID,
-    idpCert: env.SAML_IDP_CERT,
-  };
+  return { entityId, callbackUrl, idpSsoUrl, idpEntityId, idpCert };
 }
 
 /**
@@ -80,7 +84,7 @@ function isDomainAllowed(email: string, allowedDomains?: string): boolean {
  * SAML認証開始、IdPにリダイレクト
  */
 auth.get('/login', async (c) => {
-  const config = getSAMLConfig(c.env);
+  const config = await getSAMLConfig(c.env);
 
   if (!config) {
     console.error('SAML configuration is incomplete');
@@ -103,7 +107,7 @@ auth.get('/login', async (c) => {
  * SAMLResponse受信、検証、セッション作成
  */
 auth.post('/saml/callback', async (c) => {
-  const config = getSAMLConfig(c.env);
+  const config = await getSAMLConfig(c.env);
   if (!config) {
     console.error('SAML configuration is incomplete');
     return c.redirect('/login?error=config');
@@ -134,18 +138,20 @@ auth.post('/saml/callback', async (c) => {
     return c.redirect('/login?error=email');
   }
 
-  // ドメイン制限をチェック
-  if (!isDomainAllowed(user.email, c.env.ALLOWED_DOMAINS)) {
+  // ドメイン制限をチェック（環境変数、なければ初期セットアップで保存した設定）
+  const storedConfig = await getStoredAuthConfig(c.env.DB);
+  const allowedDomains = c.env.ALLOWED_DOMAINS || storedConfig.allowedDomains;
+  if (!isDomainAllowed(user.email, allowedDomains)) {
     console.warn(`Domain not allowed: ${user.email}`);
     return c.redirect('/login?error=domain');
   }
 
-  // セッショントークンを生成
-  const sessionSecret = c.env.SESSION_SECRET;
-  if (!sessionSecret) {
-    console.error('SESSION_SECRET is not configured');
-    return c.redirect('/login?error=config');
-  }
+  // 最初にログインしたユーザーを管理者にする
+  // SAML設定を行った本人が管理者になる想定
+  await promoteFirstUserToAdmin(c.env.DB, user.email, user.name || null);
+
+  // セッショントークンを取得（環境変数が未設定ならD1の自動生成値を使う）
+  const sessionSecret = await getSessionSecret(c.env.DB, c.env.SESSION_SECRET);
 
   const maxAge = getSessionMaxAge(c.env.SESSION_MAX_AGE);
   const isSecure = c.req.url.startsWith('https://');
@@ -270,6 +276,14 @@ async function issueLocalSession(
 auth.post('/register', async (c) => {
   const db = c.env.DB;
 
+  // ローカル認証、または認証方式が未設定の場合のみ登録を受け付ける
+  // SAMLなど別の認証方式が設定済みの場合に
+  // ローカル管理者を作られないようにする
+  const authMethod = await resolveAuthMethod(c.env, db);
+  if (authMethod !== 'setup' && authMethod !== 'local') {
+    return c.redirect('/login', 302);
+  }
+
   // 既に管理者がいる場合はログインページへ
   if (await hasAdminUser(db)) {
     return c.redirect('/login', 302);
@@ -304,6 +318,9 @@ auth.post('/register', async (c) => {
   if (!user) {
     return c.redirect('/login', 302);
   }
+
+  // 認証方式をローカル認証として確定させる
+  await setAuthMethod(db, 'local');
 
   return issueLocalSession(c, user);
 });
@@ -347,4 +364,56 @@ auth.post('/local/login', async (c) => {
   await clearFailedAttempts(db, ipAddress, email, 'login');
 
   return issueLocalSession(c, user);
+});
+
+/**
+ * POST /auth/setup/saml
+ * 初期セットアップ画面で入力されたSAML設定を保存する
+ *
+ * 環境変数を使わずD1に保存するため、
+ * Deploy to Cloudflareボタン経由でデプロイした場合でも
+ * 画面から認証方式を設定できる。
+ */
+auth.post('/setup/saml', async (c) => {
+  const db = c.env.DB;
+
+  // 既にセットアップが完了している場合は受け付けない
+  const stored = await getStoredAuthConfig(db);
+  if (stored.authMethod || (await hasAdminUser(db))) {
+    return c.redirect('/login', 302);
+  }
+
+  const form = await c.req.formData();
+  const entityId = (form.get('entity_id') as string | null)?.trim() || '';
+  const callbackUrl = (form.get('callback_url') as string | null)?.trim() || '';
+  const idpSsoUrl = (form.get('idp_sso_url') as string | null)?.trim() || '';
+  const idpEntityId = (form.get('idp_entity_id') as string | null)?.trim() || '';
+  const idpCert = (form.get('idp_cert') as string | null)?.trim() || '';
+  const allowedDomains = (form.get('allowed_domains') as string | null)?.trim() || '';
+
+  if (!entityId || !callbackUrl || !idpSsoUrl || !idpEntityId || !idpCert) {
+    return c.redirect('/setup?mode=saml&error=required', 302);
+  }
+
+  // 証明書はPEMヘッダー・改行を取り除いてBase64本体だけを保存する
+  const normalizedCert = idpCert
+    .replace(/-----BEGIN CERTIFICATE-----/g, '')
+    .replace(/-----END CERTIFICATE-----/g, '')
+    .replace(/\s+/g, '');
+
+  if (!normalizedCert) {
+    return c.redirect('/setup?mode=saml&error=cert', 302);
+  }
+
+  await saveSamlConfig(db, {
+    entityId,
+    callbackUrl,
+    idpSsoUrl,
+    idpEntityId,
+    idpCert: normalizedCert,
+    allowedDomains,
+  });
+
+  // 設定完了後はログインページからIdPへ進む
+  return c.redirect('/login', 302);
 });

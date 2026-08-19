@@ -1203,3 +1203,38 @@ export async function createFirstAdminUser(
 
   return user ?? null;
 }
+
+/**
+ * 管理者が未登録の場合、指定ユーザーを作成して管理者に昇格させる
+ *
+ * SAML認証で最初にログインしたユーザーを管理者にするために使用する。
+ * 既に管理者が存在する場合は何もしない（通常のユーザーとして扱う）。
+ */
+export async function promoteFirstUserToAdmin(
+  db: D1Database,
+  email: string,
+  name: string | null
+): Promise<void> {
+  if (await hasAdminUser(db)) {
+    return;
+  }
+
+  const existing = await findUserByEmail(db, email);
+
+  if (existing) {
+    await db
+      .prepare("UPDATE users SET role = 'admin' WHERE id = ? AND role != 'admin'")
+      .bind(existing.id)
+      .run();
+    return;
+  }
+
+  await db
+    .prepare(
+      `INSERT INTO users (email, name, role)
+       SELECT ?, ?, 'admin'
+       WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')`
+    )
+    .bind(email, name)
+    .run();
+}

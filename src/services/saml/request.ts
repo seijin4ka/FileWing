@@ -57,13 +57,23 @@ export function createAuthnRequest(options: AuthnRequestOptions): AuthnRequestRe
   const { xml, id } = createAuthnRequestXml(options);
 
   // Base64エンコード
-  const encoded = btoa(xml);
+  // btoaはLatin1範囲の文字しか扱えないため、UTF-8バイト列に変換してから行う
+  const bytes = new TextEncoder().encode(xml);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const encoded = btoa(binary);
 
   // URLエンコード
   const samlRequest = encodeURIComponent(encoded);
 
   // リダイレクトURLを構築
-  const redirectUrl = `${options.destination}?SAMLRequest=${samlRequest}`;
+  // IdPのSSO URLは既にクエリ文字列を含むことがあるため
+  // （Google Workspaceの場合は必ず ?idpid=... が付く）、
+  // 区切り文字を判定して連結する
+  const separator = options.destination.includes('?') ? '&' : '?';
+  const redirectUrl = `${options.destination}${separator}SAMLRequest=${samlRequest}`;
 
   return { id, redirectUrl };
 }

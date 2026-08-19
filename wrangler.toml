@@ -17,21 +17,22 @@ compatibility_flags = ["nodejs_compat"]
 # =====================================================
 # 環境変数
 # =====================================================
-# この設定はそのままデプロイされる想定です（本番安全side）。
-# AUTH_METHOD = "local" は管理者登録方式です。
-# 公開URLに最初にアクセスすると管理者登録画面が表示され、
-# その場で管理者アカウントを作成できます。
-# 管理者登録が済むまで、また未ログインの状態では
+# AUTH_METHOD は意図的に未設定にしています。
+# 未設定の場合、公開URLに最初にアクセスすると初期セットアップ画面が表示され、
+# 「管理者アカウントを作成（ローカル認証）」か「SAML SSOを設定」かを
+# 画面上で選択できます。選んだ設定はD1に保存されるため、
+# 環境変数を触らずにDeploy to Cloudflareボタン経由のデプロイだけで運用できます。
+#
+# セットアップが完了するまで、また未ログインの状態では
 # アプリの機能にはアクセスできません（フェイルクローズ）。
 #
-# SAML SSOを使う場合は AUTH_METHOD = "saml" に変更し、
-# 下記のSAML設定とシークレットを設定してください。
+# 環境変数で明示的に指定した場合は、そちらが画面の設定より優先されます。
+# AUTH_METHOD = "local" | "saml" | "cloudflare-access" | "skip"
 #
 # ローカル開発で認証をスキップするには npm run dev を使用してください
 # （--var AUTH_METHOD:skip を自動的に付与します）。
 [vars]
-AUTH_METHOD = "local"  # "local" | "saml" | "cloudflare-access" | "skip"
-SKIP_AUTH = "false"    # 後方互換用
+SKIP_AUTH = "false"  # 後方互換用
 EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換えてください
 SESSION_MAX_AGE = "86400"  # 1日（秒）
 
@@ -72,6 +73,13 @@ migrations_dir = "migrations"
 
 [[send_email]]
 name = "EMAIL"
+
+# マイグレーションSQLをテキストとしてバンドルに取り込む
+# Worker起動時に自動適用するため（src/services/schema.ts）
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true
 
 # 定期クリーンアップ（毎日深夜3時 JST = 18:00 UTC）
 [triggers]

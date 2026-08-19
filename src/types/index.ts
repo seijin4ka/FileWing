@@ -248,6 +248,8 @@ export interface Variables {
   user: AuthUser;
   userId: number;
   lang: Language;
+  /** 判定された認証方式（ログアウトボタンの表示制御用） */
+  authMethod: 'saml' | 'cloudflare-access' | 'local' | 'skip' | 'setup';
 }
 
 // =====================================================
