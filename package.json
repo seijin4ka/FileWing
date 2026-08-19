@@ -4,10 +4,10 @@
   "description": "FileWing - 脱PPAP対応のセキュアファイル共有システム",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy --env production && wrangler d1 migrations apply DB --remote --env production",
+    "dev": "wrangler dev --var AUTH_METHOD:skip --var SKIP_AUTH:true",
+    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
     "db:migrate": "wrangler d1 migrations apply DB --local",
-    "db:migrate:prod": "wrangler d1 migrations apply DB --remote --env production",
+    "db:migrate:prod": "wrangler d1 migrations apply DB --remote",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

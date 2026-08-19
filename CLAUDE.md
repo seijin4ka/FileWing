@@ -287,18 +287,26 @@ ID を省略すると `wrangler deploy` 時に Cloudflare がリソースを自�
 
 ### 環境の使い分け
 
-| 設定 | AUTH_METHOD | 用途 |
-|------|-------------|------|
-| トップレベル `[vars]` | `skip` | ローカル開発のみ。**公開厳禁** |
-| `[env.production.vars]` | `saml` | 本番。シークレット未設定時はログインへリダイレクトしてフェイルクローズ |
+named environment は使わず、`wrangler.toml` の `[vars]` 単体で運用する。
+この設定はそのままデプロイされる前提のため、既定値を本番安全側に倒している。
 
-本番デプロイは必ず `--env production` を使用する（`npm run deploy` が自動的に付与）。
+| 用途 | 設定 |
+|------|------|
+| デプロイ | `[vars]` の `AUTH_METHOD = "saml"`。シークレット未設定時はページを `/login` にリダイレクト、APIは401を返してフェイルクローズする |
+| ローカル開発 | `npm run dev` が `--var AUTH_METHOD:skip --var SKIP_AUTH:true` を付与して認証をスキップする（wrangler.toml は変更しない） |
+
+`[vars]` の `AUTH_METHOD` を `"skip"` に書き換えないこと。
+書き換えたままデプロイすると認証なしで公開される。
 
 ### デプロイボタン
 
 README 冒頭の `https://deploy.workers.cloudflare.com/?url=<リポジトリURL>` を使用。
 Cloudflare は `package.json` の `deploy` スクリプトを自動検出して実行する。
 シークレットは `.dev.vars.example` に定義したものがデプロイ時に入力を求められる。
+
+**Workers Builds（GitHub連携）のデプロイコマンドは `npm run deploy` にすること。**
+`npx wrangler deploy` のままだとマイグレーションが実行されず、
+D1にテーブルが無いため全ページが500エラーになる。
 
 ## Email Sending設定
 

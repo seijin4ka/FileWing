@@ -15,20 +15,46 @@ compatibility_flags = ["nodejs_compat"]
 # account_id は環境変数 CLOUDFLARE_ACCOUNT_ID から取得されます。
 
 # =====================================================
-# 開発環境（トップレベル設定）
+# 環境変数
 # =====================================================
-# 注意: この [vars] は「ローカル開発用」です。
-# AUTH_METHOD = "skip" は認証を完全にバイパスするため、
-# この設定のままインターネットに公開してはいけません。
-# 本番デプロイは必ず --env production を使用してください
-# （npm run deploy が自動的に付与します）。
+# この設定はそのままデプロイされる想定です（本番安全side）。
+# AUTH_METHOD = "saml" のため、SESSION_SECRET などのシークレットが
+# 未設定の状態では全リクエストがログインページにリダイレクトされます
+# （＝フェイルクローズする）。認証設定を済ませるまでアプリが
+# 無防備に公開されることはありません。
+#
+# ローカル開発で認証をスキップするには npm run dev を使用してください
+# （--var AUTH_METHOD:skip を自動的に付与します）。
 [vars]
-AUTH_METHOD = "skip"
-SKIP_AUTH = "true"  # 後方互換用
+AUTH_METHOD = "saml"  # "saml" | "cloudflare-access" | "skip"
+SKIP_AUTH = "false"   # 後方互換用
 EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換えてください
 SESSION_MAX_AGE = "86400"  # 1日（秒）
-APP_URL = "http://localhost:8787"
 
+# アプリケーションURL（ログアウト後のリダイレクト先。未設定時は "/"）
+# APP_URL = "https://your-domain.com"
+
+# SAML設定（AUTH_METHOD = "saml" の場合に設定）
+# SAML_ENTITY_ID = "https://your-domain.com"
+# SAML_IDP_SSO_URL = ""  # IdPのSSO URL
+# SAML_IDP_ENTITY_ID = ""  # IdPのEntity ID
+# SAML_CALLBACK_URL = "https://your-domain.com/auth/saml/callback"
+
+# ドメイン制限（カンマ区切り、空=全ドメイン許可）
+# ALLOWED_DOMAINS = "company.com,partner.co.jp"
+
+# Cloudflare Accessで認証する場合は
+# AUTH_METHOD = "cloudflare-access" に変更して以下を設定
+# ACCESS_TEAM_NAME = ""
+# ACCESS_AUD = ""
+
+# シークレット（wrangler secret put で設定。.dev.vars.example 参照）
+# SESSION_SECRET - セッションJWT署名キー（32文字以上のランダム文字列）
+# SAML_IDP_CERT  - IdP X.509証明書（Base64）
+
+# =====================================================
+# バインディング
+# =====================================================
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "filewing-bucket"
@@ -43,52 +69,4 @@ name = "EMAIL"
 
 # 定期クリーンアップ（毎日深夜3時 JST = 18:00 UTC）
 [triggers]
-crons = ["0 18 * * *"]
-
-# =====================================================
-# 本番環境設定（npm run deploy / デプロイボタンが使用）
-# =====================================================
-# AUTH_METHOD = "saml" がデフォルトです。
-# SESSION_SECRET などのシークレットが未設定の場合は
-# 全リクエストがログインページにリダイレクトされる
-# （＝フェイルクローズする）ため、認証設定を済ませるまで
-# アプリが無防備に公開されることはありません。
-#
-# デプロイ後に以下を設定してください:
-#   1. wrangler secret put SESSION_SECRET --env production
-#   2. wrangler secret put SAML_IDP_CERT --env production
-#   3. SAML_* / APP_URL をIdPの値に合わせて書き換え
-#
-# Cloudflare Accessで認証する場合は
-# AUTH_METHOD = "cloudflare-access" に変更し、
-# ACCESS_TEAM_NAME / ACCESS_AUD を設定してください。
-[env.production.vars]
-AUTH_METHOD = "saml"
-SKIP_AUTH = "false"
-EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換え
-SESSION_MAX_AGE = "86400"
-APP_URL = "https://your-domain.com"  # 実際のデプロイ先URLに置き換え
-
-# SAML設定（IdPの値に置き換えてください）
-SAML_ENTITY_ID = "https://your-domain.com"
-SAML_IDP_SSO_URL = ""  # IdPのSSO URL
-SAML_IDP_ENTITY_ID = ""  # IdPのEntity ID
-SAML_CALLBACK_URL = "https://your-domain.com/auth/saml/callback"
-
-# ドメイン制限（カンマ区切り、空=全ドメイン許可）
-# ALLOWED_DOMAINS = "company.com,partner.co.jp"
-
-[[env.production.r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "filewing-bucket"
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "filewing-db"
-migrations_dir = "migrations"
-
-[[env.production.send_email]]
-name = "EMAIL"
-
-[env.production.triggers]
 crons = ["0 18 * * *"]

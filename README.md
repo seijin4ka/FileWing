@@ -66,9 +66,10 @@ FileWingは2つの認証方式をサポートしています。`AUTH_METHOD`環�
 
 **デプロイ直後の状態について**
 
-本番設定は `AUTH_METHOD = "saml"` かつシークレット未設定のため、
-すべてのアクセスがログインページにリダイレクトされます（フェイルクローズ）。
-アプリが無防備に公開されることはありません。
+`wrangler.toml` は `AUTH_METHOD = "saml"` を既定値としています。
+シークレット未設定の状態ではすべてのページアクセスがログインページに
+リダイレクトされ、APIは401を返します（フェイルクローズ）。
+そのためアプリが認証なしで公開されることはありません。
 下記「認証設定」を完了すると利用可能になります。
 
 ### 前提条件（CLIで操作する場合）
@@ -90,12 +91,10 @@ npm run dev
 ```
 
 http://localhost:8787 でアクセス。ローカルのD1・R2は初回起動時に自動作成されます。
-開発環境（トップレベル設定）は `AUTH_METHOD = "skip"` のため認証がスキップされ、
-テストユーザーとして自動ログインします。
 
-> **注意**: `AUTH_METHOD = "skip"` は認証を完全にバイパスします。
-> この設定のままインターネットに公開しないでください。
-> 本番デプロイは必ず `--env production` を使用してください（`npm run deploy` が自動的に付与します）。
+`npm run dev` は `--var AUTH_METHOD:skip` を付けて起動するため、
+認証がスキップされテストユーザーとして自動ログインします。
+この上書きはローカル実行時のみで、`wrangler.toml` には保存されません。
 
 ### 本番デプロイ（CLI）
 
@@ -109,9 +108,9 @@ npm run deploy
 
 `npm run deploy` は以下を順に実行します。
 
-1. `wrangler deploy --env production`
+1. `wrangler deploy`
    初回実行時にD1データベースとR2バケットを自動作成してバインディングに紐付けます
-2. `wrangler d1 migrations apply DB --remote --env production`
+2. `wrangler d1 migrations apply DB --remote`
    作成されたD1にマイグレーションを適用します（データベース名ではなく
    バインディング名 `DB` を指定するため、DB名を変更しても動作します）
 
@@ -119,21 +118,26 @@ npm run deploy
 Cloudflareが自動でリソースを作成するため、公開リポジトリにIDを載せずに済みます。
 （この自動プロビジョニングには wrangler 4.45.0 以上が必要です）
 
+> **Workers Builds（GitHub連携）を使う場合**
+> デプロイコマンドを `npm run deploy` に設定してください。
+> `npx wrangler deploy` のままだとマイグレーションが実行されず、
+> D1にテーブルが無いため全ページが500エラーになります。
+
 #### デプロイ後の設定
 
-`wrangler.toml` の `[env.production.vars]` を実際の値に置き換えてください。
+`wrangler.toml` の `[vars]` を実際の値に置き換えてください。
 
 | 変数 | 説明 |
 |------|------|
-| `APP_URL` | 実際のデプロイ先URL |
 | `EMAIL_FROM` | Email Routingで検証済みの送信元アドレス |
+| `APP_URL` | 実際のデプロイ先URL（ログアウト後のリダイレクト先） |
 | `SAML_*` | IdPから取得した値 |
 
 シークレットはコマンドで設定します（`.dev.vars.example` を参照）。
 
 ```bash
-wrangler secret put SESSION_SECRET --env production
-wrangler secret put SAML_IDP_CERT --env production
+wrangler secret put SESSION_SECRET
+wrangler secret put SAML_IDP_CERT
 ```
 
 #### Email Routing設定
