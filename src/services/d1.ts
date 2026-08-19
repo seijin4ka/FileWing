@@ -1135,10 +1135,10 @@ export async function getReceiveLinksWithStatsByUser(
   const result = await db
     .prepare(`
       SELECT rl.*,
-             COUNT(CASE WHEN rf.id IS NOT NULL THEN 1 END) as received_file_count
+             COUNT(rf.id) as received_file_count
       FROM receive_links rl
-      LEFT JOIN received_files rf ON rf.link_id = rl.id
-      WHERE rl.user_id = ? AND rl.deleted_at IS NULL
+      LEFT JOIN received_files rf ON rf.receive_link_id = rl.id
+      WHERE rl.user_id = ?
       GROUP BY rl.id
       ORDER BY rl.created_at DESC
     `)

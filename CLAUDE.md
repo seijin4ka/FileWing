@@ -360,7 +360,18 @@ named environment は使わず、`wrangler.toml` の `[vars]` 単体で運用す
 
 README 冒頭の `https://deploy.workers.cloudflare.com/?url=<リポジトリURL>` を使用。
 Cloudflare は `package.json` の `deploy` スクリプトを自動検出して実行する。
-シークレットは `.dev.vars.example` に定義したものがデプロイ時に入力を求められる。
+**`.dev.vars.example` / `.env.example` を置かないこと。**
+Cloudflareはこれらのファイルに定義されたシークレットを
+デプロイ時に入力させるため、SAMLを使わない利用者にも
+`SAML_IDP_CERT` の入力を求めてしまう。
+シークレットは以下のとおり、いずれも事前設定が不要になっている。
+
+| シークレット | 扱い |
+|-------------|------|
+| `SESSION_SECRET` | 未設定なら初回アクセス時に自動生成してD1に保存 |
+| `SAML_IDP_CERT` | 初期セットアップ画面で入力してD1に保存 |
+
+環境変数として設定された場合はそちらが優先される。
 
 Workers Builds（GitHub連携）のデプロイコマンドは `npx wrangler deploy` のままでよい。
 スキーマ作成も認証設定もアプリ側で完結するため、
