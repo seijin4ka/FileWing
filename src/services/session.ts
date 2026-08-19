@@ -167,10 +167,12 @@ async function signHmac(data: string, secret: string): Promise<string> {
 
 /**
  * Base64 URL エンコード（文字列）
+ * btoaはLatin1範囲の文字しか扱えないため、
+ * 日本語などの非ASCII文字を含む場合に備えて先にUTF-8バイト列へ変換する
  */
 function base64UrlEncode(str: string): string {
-  const base64 = btoa(str);
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const bytes = new TextEncoder().encode(str);
+  return base64UrlEncodeBytes(bytes);
 }
 
 /**
@@ -194,7 +196,14 @@ function base64UrlDecode(str: string): string {
   if (padding) {
     base64 += '='.repeat(4 - padding);
   }
-  return atob(base64);
+
+  // base64UrlEncodeがUTF-8バイト列を出力するため、デコード側もUTF-8として復元する
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /**

@@ -59,7 +59,7 @@ export interface Env {
   ALLOWED_DOMAINS?: string;
 
   // 認証方式選択
-  /** 認証方式: 'saml' | 'cloudflare-access' | 'skip' */
+  /** 認証方式: 'saml' | 'cloudflare-access' | 'local' | 'skip' */
   AUTH_METHOD?: string;
 }
 
@@ -74,6 +74,10 @@ export interface User {
   id: number;
   email: string;
   name: string | null;
+  /** パスワードハッシュ（PBKDF2形式）。SAML認証のユーザーはnull */
+  password_hash: string | null;
+  /** ロール（'admin' | 'user'） */
+  role: string;
   created_at: string;
   updated_at: string;
 }
@@ -229,7 +233,7 @@ export interface AuthUser {
   email: string;
   name?: string;
   /** 認証プロバイダー */
-  provider?: 'cloudflare-access' | 'google-saml' | 'test';
+  provider?: 'cloudflare-access' | 'google-saml' | 'local' | 'test';
 }
 
 /**
@@ -259,7 +263,7 @@ export interface SessionPayload {
   /** 表示名 */
   name?: string;
   /** 認証プロバイダー */
-  provider: 'google-saml' | 'test';
+  provider: 'google-saml' | 'local' | 'test';
   /** 発行時刻（Unix timestamp） */
   iat: number;
   /** 有効期限（Unix timestamp） */

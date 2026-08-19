@@ -60,6 +60,7 @@ src/
 │   ├── costs.ts          # コスト見積もり計算
 │   ├── ratelimit.ts      # レート制限（ブルートフォース対策）
 │   ├── session.ts        # セッションJWT管理
+│   ├── settings.ts       # アプリ設定（署名キーの自動生成・保存）
 │   └── saml/             # SAML SSO認証
 │       ├── index.ts      # SAMLサービス統合
 │       ├── types.ts      # SAML型定義
@@ -139,6 +140,7 @@ src/
 
 | AUTH_METHOD | 説明 | ログアウトボタン |
 |-------------|------|-----------------|
+| `local` | ローカル認証（管理者登録方式、既定値） | あり |
 | `saml` | SAML 2.0 SSO認証（Google Workspace等） | あり |
 | `cloudflare-access` | Cloudflare Access JWT認証 | なし（Cloudflare側で管理） |
 | `skip` | 認証スキップ（開発用） | なし |
@@ -147,7 +149,27 @@ src/
   - `SKIP_AUTH=true` → skip
   - SAML設定完全 → saml
   - Cloudflare Access設定あり → cloudflare-access
-- **公開ルート**: `/d/:token`、`/r/:token`、`/login`、`/auth/*` は認証不要
+  - いずれにも該当しない場合 → **local**
+    （旧実装は skip にフォールバックしており、設定漏れで認証なしのまま
+      公開される状態だったため local に変更した）
+- **公開ルート**: `/d/:token`、`/r/:token`、`/login`、`/register`、`/auth/*` は認証不要
+
+#### ローカル認証フロー（管理者登録方式）
+1. 未ログインでアクセス → 管理者未登録なら `/register` にリダイレクト
+2. `/register` で管理者アカウントを作成（POST `/auth/register`）
+   - 判定と挿入を1文のSQL（`INSERT ... WHERE NOT EXISTS`）で行うため、
+     同時リクエストでも管理者は1人しか作成されない
+   - パスワードは12文字以上、PBKDF2でハッシュ化
+3. 登録と同時にセッションCookieを発行してダッシュボードへ
+4. 管理者登録後は `/register` が `/login` にリダイレクトされ登録は閉じる
+5. 以降は `/login` のフォームから POST `/auth/local/login`
+   （レート制限あり。ユーザー不在時もダミーハッシュで検証して
+     応答時間からアカウントの存在を推測されないようにしている）
+
+**セッション署名キー**: `SESSION_SECRET` 未設定の場合、初回アクセス時に
+ランダム生成して D1 の `app_settings` テーブルに保存する
+（`src/services/settings.ts`）。これによりシークレット未設定でも
+ワンクリックデプロイ直後から認証が機能する。
 - **ドメイン制限**: `ALLOWED_DOMAINS` で許可ドメインを制限可能（SAML認証時）
 
 #### SAML認証フロー
@@ -196,7 +218,7 @@ src/
 
 ## データベーススキーマ
 
-8つのテーブル:
+9つのテーブル:
 1. `users` - Cloudflare Accessユーザー
 2. `files` - アップロードファイルメタデータ
 3. `download_links` - ダウンロードリンク（トークン、期限、パスワード、回数制限）
@@ -205,6 +227,10 @@ src/
 6. `receive_links` - 受信リンク（ゲストアップロード用）
 7. `received_files` - 受信ファイル
 8. `password_attempts` - パスワード試行記録（レート制限用）
+9. `app_settings` - アプリ設定（セッション署名キーの保存先）
+
+`users` にはローカル認証用の `password_hash`（PBKDF2形式、SAMLユーザーはNULL）と
+`role`（`admin` / `user`）を持つ。
 
 マイグレーションは `migrations/` ディレクトリに配置。
 

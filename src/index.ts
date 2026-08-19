@@ -30,6 +30,7 @@ import receiveGuest from './routes/pages/receive-guest';
 import costs from './routes/pages/costs';
 import links from './routes/pages/links';
 import login from './routes/pages/login';
+import register from './routes/pages/register';
 
 // 認証ルート
 import auth from './routes/auth';
@@ -81,6 +82,9 @@ app.use(
 
 // ログインページ
 app.route('/login', login);
+
+// 管理者登録ページ（ローカル認証で管理者が未登録の場合のみ表示）
+app.route('/register', register);
 
 // 認証ルート（SAML SSO）
 app.route('/auth', auth);

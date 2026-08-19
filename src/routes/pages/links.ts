@@ -11,6 +11,7 @@ import { badge } from '../../templates/components/table';
 import { icons } from '../../templates/components/card';
 import { getLinksByUser } from '../../services/d1';
 import { createTranslator } from '../../i18n';
+import { getAuthMethod_forTemplate } from '../../middleware/auth';
 
 const links = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -244,7 +245,7 @@ links.get('/', async (c) => {
     </script>
   `;
 
-  return c.html(layout({ title: get('links.title'), user, lang, currentUrl: c.req.url }, content));
+  return c.html(layout({ title: get('links.title'), user, lang, authMethod: getAuthMethod_forTemplate(c.env), currentUrl: c.req.url }, content));
 });
 
 /**

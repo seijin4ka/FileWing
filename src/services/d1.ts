@@ -1147,3 +1147,59 @@ export async function getReceiveLinksWithStatsByUser(
 
   return result.results;
 }
+
+// =====================================================
+// ローカル認証（管理者登録方式）
+// =====================================================
+
+/**
+ * 管理者ユーザーが既に登録されているかを判定
+ */
+export async function hasAdminUser(db: D1Database): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT 1 as found FROM users WHERE role = 'admin' LIMIT 1")
+    .first<{ found: number }>();
+
+  return row !== null;
+}
+
+/**
+ * メールアドレスでユーザーを検索（作成はしない）
+ */
+export async function findUserByEmail(
+  db: D1Database,
+  email: string
+): Promise<User | null> {
+  const user = await db
+    .prepare('SELECT * FROM users WHERE email = ?')
+    .bind(email)
+    .first<User>();
+
+  return user ?? null;
+}
+
+/**
+ * 最初の管理者ユーザーを作成
+ *
+ * 管理者が既に存在する場合は作成せず null を返す。
+ * 判定と挿入を1文のSQLで行うため、同時リクエストで
+ * 複数の管理者が登録されることはない。
+ */
+export async function createFirstAdminUser(
+  db: D1Database,
+  email: string,
+  name: string | null,
+  passwordHash: string
+): Promise<User | null> {
+  const user = await db
+    .prepare(
+      `INSERT INTO users (email, name, password_hash, role)
+       SELECT ?, ?, ?, 'admin'
+       WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')
+       RETURNING *`
+    )
+    .bind(email, name, passwordHash)
+    .first<User>();
+
+  return user ?? null;
+}

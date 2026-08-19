@@ -18,7 +18,7 @@ export interface LayoutOptions {
   /** 言語設定 */
   lang?: Language;
   /** 認証方式（ログアウトボタン表示制御用） */
-  authMethod?: 'saml' | 'cloudflare-access' | 'skip';
+  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip';
   /** 現在のURL（言語切り替え時にクエリパラメータを保持するため） */
   currentUrl?: string;
 }
@@ -271,7 +271,7 @@ export function layout(options: LayoutOptions, content: string): string {
 function renderHeader(
   user?: { email: string; name?: string } | null,
   lang: Language = 'ja',
-  authMethod?: 'saml' | 'cloudflare-access' | 'skip',
+  authMethod?: 'saml' | 'cloudflare-access' | 'local' | 'skip',
   currentUrl?: string
 ): string {
   const { get } = createTranslator(lang);
@@ -292,9 +292,10 @@ function renderHeader(
     }
   }
 
-  // SAML認証の場合のみログアウトボタンを表示
+  // アプリ側でセッションを管理する認証方式の場合のみログアウトボタンを表示
   // Cloudflare Access認証の場合はCloudflare側でセッション管理されるため非表示
-  const showLogout = authMethod === 'saml';
+  // 認証スキップの場合はログアウトする対象がないため非表示
+  const showLogout = authMethod === 'saml' || authMethod === 'local';
 
   return `
   <header class="bg-primary-500 shadow-lg">

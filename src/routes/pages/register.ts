@@ -1,31 +1,28 @@
 /**
- * ログインページ
- * SAML SSO認証、またはローカル認証（メールアドレス+パスワード）のログインUI
+ * 管理者登録ページ
+ * ローカル認証（AUTH_METHOD='local'）で、管理者が未登録のときに表示する
+ * 公開URLにアクセスした管理者がその場でアカウントを作成する
  */
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../types';
 import { createTranslator, DEFAULT_LANGUAGE } from '../../i18n';
 import { escapeHtml } from '../../templates/layout';
-import { getAuthMethod_forTemplate } from '../../middleware/auth';
 import { hasAdminUser } from '../../services/d1';
 
-const login = new Hono<{ Bindings: Env; Variables: Variables }>();
+const register = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
- * GET /login
- * ログインページ表示
+ * GET /register
+ * 管理者登録ページ表示
  */
-login.get('/', async (c) => {
+register.get('/', async (c) => {
   const lang = c.get('lang') || DEFAULT_LANGUAGE;
   const { get } = createTranslator(lang);
 
-  const authMethod = getAuthMethod_forTemplate(c.env);
-  const isLocalAuth = authMethod === 'local';
-
-  // ローカル認証で管理者が未登録の場合は、まず管理者登録を行う
-  if (isLocalAuth && !(await hasAdminUser(c.env.DB))) {
-    return c.redirect('/register', 302);
+  // 既に管理者が登録されている場合は登録を受け付けない
+  if (await hasAdminUser(c.env.DB)) {
+    return c.redirect('/login', 302);
   }
 
   // エラーメッセージ
@@ -33,14 +30,10 @@ login.get('/', async (c) => {
   let errorMessage = '';
   if (errorParam) {
     const errorMessages: Record<string, string> = {
-      config: lang === 'ja' ? 'SAML設定が不完全です。管理者に連絡してください。' : 'SAML configuration is incomplete. Please contact administrator.',
-      response: lang === 'ja' ? 'SAMLレスポンスが不正です。' : 'Invalid SAML response.',
-      validation: lang === 'ja' ? '認証に失敗しました。' : 'Authentication failed.',
-      email: lang === 'ja' ? 'メールアドレスを取得できませんでした。' : 'Failed to retrieve email address.',
-      domain: lang === 'ja' ? 'このドメインからのログインは許可されていません。' : 'Login from this domain is not allowed.',
-      session: lang === 'ja' ? 'セッションが無効です。再度ログインしてください。' : 'Session is invalid. Please login again.',
-      credentials: lang === 'ja' ? 'メールアドレスまたはパスワードが正しくありません。' : 'Incorrect email address or password.',
-      ratelimit: lang === 'ja' ? '試行回数が上限に達しました。しばらく時間をおいて再度お試しください。' : 'Too many attempts. Please try again later.',
+      email: lang === 'ja' ? 'メールアドレスの形式が正しくありません。' : 'Invalid email address format.',
+      password: lang === 'ja' ? 'パスワードは12文字以上で入力してください。' : 'Password must be at least 12 characters.',
+      mismatch: lang === 'ja' ? 'パスワードが一致しません。' : 'Passwords do not match.',
+      required: lang === 'ja' ? '必須項目が入力されていません。' : 'Required fields are missing.',
     };
     errorMessage = errorMessages[errorParam] || (lang === 'ja' ? '不明なエラーが発生しました。' : 'An unknown error occurred.');
   }
@@ -50,7 +43,7 @@ login.get('/', async (c) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${get('login.title')} - ${get('common.appName')}</title>
+  <title>${get('register.title')} - ${get('common.appName')}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -85,11 +78,22 @@ login.get('/', async (c) => {
         </svg>
       </div>
       <h1 class="text-3xl font-bold text-gray-900">${get('common.appName')}</h1>
-      <p class="mt-2 text-gray-600">${get('login.description')}</p>
+      <p class="mt-2 text-gray-600">${get('register.description')}</p>
     </div>
 
-    <!-- ログインカード -->
+    <!-- 登録カード -->
     <div class="bg-white rounded-2xl shadow-xl p-8">
+      <p class="text-sm text-gray-600 mb-4">${get('register.lead')}</p>
+
+      <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <div class="flex items-start">
+          <svg class="w-5 h-5 text-amber-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.99l-6.93-12a2 2 0 00-3.48 0l-6.93 12A2 2 0 005.07 19z"/>
+          </svg>
+          <span class="text-sm text-amber-800">${get('register.warning')}</span>
+        </div>
+      </div>
+
       ${errorMessage ? `
       <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
         <div class="flex items-center">
@@ -101,39 +105,40 @@ login.get('/', async (c) => {
       </div>
       ` : ''}
 
-      ${isLocalAuth ? `
-      <form method="POST" action="/auth/local/login" class="space-y-4">
+      <form method="POST" action="/auth/register" class="space-y-4">
         <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">${get('login.email')}</label>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">${get('register.name')}</label>
+          <input type="text" id="name" name="name" autocomplete="name"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">${get('register.email')}</label>
           <input type="email" id="email" name="email" required autocomplete="username"
                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
         </div>
 
         <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">${get('login.password')}</label>
-          <input type="password" id="password" name="password" required autocomplete="current-password"
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">${get('register.password')}</label>
+          <input type="password" id="password" name="password" required minlength="12" autocomplete="new-password"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+          <p class="mt-1 text-xs text-gray-500">${get('register.passwordHint')}</p>
+        </div>
+
+        <div>
+          <label for="password_confirm" class="block text-sm font-medium text-gray-700 mb-1">${get('register.passwordConfirm')}</label>
+          <input type="password" id="password_confirm" name="password_confirm" required minlength="12" autocomplete="new-password"
                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
         </div>
 
         <button type="submit"
                 class="w-full flex items-center justify-center px-6 py-3 bg-primary-500 text-white font-medium rounded-lg hover:bg-primary-600 transition-colors shadow-md hover:shadow-lg">
-          ${get('login.submit')}
+          ${get('register.submit')}
         </button>
       </form>
-      ` : `
-      <a href="/auth/login" class="w-full flex items-center justify-center px-6 py-3 bg-primary-500 text-white font-medium rounded-lg hover:bg-primary-600 transition-colors shadow-md hover:shadow-lg">
-        <svg class="w-6 h-6 mr-3" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        ${get('login.googleLogin')}
-      </a>
-      `}
 
       <div class="mt-6 text-center">
-        <p class="text-xs text-gray-500">${isLocalAuth ? get('login.localSecurityNote') : get('login.securityNote')}</p>
+        <p class="text-xs text-gray-500">${get('register.footer')}</p>
       </div>
     </div>
 
@@ -148,4 +153,4 @@ login.get('/', async (c) => {
   return c.html(html);
 });
 
-export default login;
+export default register;

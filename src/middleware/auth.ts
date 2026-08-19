@@ -3,6 +3,7 @@
  * AUTH_METHOD環境変数に基づいて認証方式を切り替え
  * - 'saml': SAML SSO認証（セッションベース）
  * - 'cloudflare-access': Cloudflare Access JWT認証
+ * - 'local': ローカル認証（管理者登録方式、セッションベース）
  * - 'skip': 認証スキップ（開発用）
  *
  * 後方互換: SKIP_AUTH=true は AUTH_METHOD='skip' と同等
@@ -10,20 +11,29 @@
 
 import { Context, Next } from 'hono';
 import type { Env, Variables } from '../types';
-import { findOrCreateUser } from '../services/d1';
+import { findOrCreateUser, findUserByEmail, hasAdminUser } from '../services/d1';
+import { getSessionSecret } from '../services/settings';
 import {
   verifySessionToken,
   getSessionTokenFromCookie,
 } from '../services/session';
 
+/** 認証方式 */
+type AuthMethod = 'saml' | 'cloudflare-access' | 'local' | 'skip';
+
 /**
  * 認証方式を判定
  */
-function getAuthMethod(env: Env): 'saml' | 'cloudflare-access' | 'skip' {
+function getAuthMethod(env: Env): AuthMethod {
   // AUTH_METHODが明示的に設定されている場合はそれを使用
   if (env.AUTH_METHOD) {
     const method = env.AUTH_METHOD.toLowerCase();
-    if (method === 'saml' || method === 'cloudflare-access' || method === 'skip') {
+    if (
+      method === 'saml' ||
+      method === 'cloudflare-access' ||
+      method === 'local' ||
+      method === 'skip'
+    ) {
       return method;
     }
   }
@@ -50,8 +60,10 @@ function getAuthMethod(env: Env): 'saml' | 'cloudflare-access' | 'skip' {
     return 'cloudflare-access';
   }
 
-  // デフォルトはskip（開発環境想定）
-  return 'skip';
+  // デフォルトはローカル認証
+  // 認証設定が何もない状態で 'skip' を返すと認証なしで公開されてしまうため、
+  // 管理者登録を要求する 'local' をフォールバックとする
+  return 'local';
 }
 
 /**
@@ -71,6 +83,8 @@ export async function authMiddleware(
       return cloudflareAccessAuthMiddleware(c, next);
     case 'saml':
       return samlAuthMiddleware(c, next);
+    case 'local':
+      return localAuthMiddleware(c, next);
     default:
       return skipAuthMiddleware(c, next);
   }
@@ -88,6 +102,74 @@ async function skipAuthMiddleware(
   c.set('user', { email: testUser.email, name: testUser.name || undefined, provider: 'test' });
   c.set('userId', testUser.id);
   return next();
+}
+
+/**
+ * ローカル認証ミドルウェア（管理者登録方式）
+ *
+ * セッションCookieのJWTを検証する。有効なセッションがない場合は、
+ * 管理者が未登録なら登録ページへ、登録済みならログインページへ誘導する。
+ * これにより公開直後は管理者登録画面が最初に表示される。
+ */
+async function localAuthMiddleware(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  next: Next
+) {
+  const env = c.env;
+
+  // 署名キーを取得（環境変数優先、未設定ならD1に保存した値を使用）
+  const sessionSecret = await getSessionSecret(env.DB, env.SESSION_SECRET);
+
+  const cookieHeader = c.req.header('Cookie');
+  const token = getSessionTokenFromCookie(cookieHeader);
+
+  if (!token) {
+    return redirectToLocalEntry(c);
+  }
+
+  const payload = await verifySessionToken(token, sessionSecret);
+
+  if (!payload) {
+    return redirectToLocalEntry(c, 'session');
+  }
+
+  // セッションのユーザーが実在するかを確認（削除済みユーザーの締め出し）
+  const user = await findUserByEmail(env.DB, payload.sub);
+
+  if (!user) {
+    return redirectToLocalEntry(c, 'session');
+  }
+
+  c.set('user', {
+    email: user.email,
+    name: user.name || undefined,
+    provider: payload.provider,
+  });
+  c.set('userId', user.id);
+
+  return next();
+}
+
+/**
+ * ローカル認証で未認証だった場合の誘導先を決める
+ * 管理者未登録なら /register、登録済みなら /login
+ */
+async function redirectToLocalEntry(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  error?: string
+) {
+  const adminExists = await hasAdminUser(c.env.DB);
+
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ success: false, error: '認証が必要です' }, 401);
+  }
+
+  if (!adminExists) {
+    return c.redirect('/register', 302);
+  }
+
+  const url = error ? `/login?error=${error}` : '/login';
+  return c.redirect(url, 302);
 }
 
 /**
@@ -184,7 +266,7 @@ export function getAuthInfo(c: Context<{ Variables: Variables }>) {
 /**
  * 現在の認証方式を取得（テンプレート用）
  */
-export function getAuthMethod_forTemplate(env: Env): 'saml' | 'cloudflare-access' | 'skip' {
+export function getAuthMethod_forTemplate(env: Env): AuthMethod {
   return getAuthMethod(env);
 }
 

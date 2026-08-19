@@ -21,7 +21,7 @@ export async function checkRateLimit(
   db: D1Database,
   ipAddress: string | undefined,
   token: string,
-  attemptType: 'download' | 'receive'
+  attemptType: 'download' | 'receive' | 'login'
 ): Promise<RateLimitResult> {
   const identifier = `${ipAddress || 'unknown'}:${token}`;
   const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000).toISOString();
@@ -78,7 +78,7 @@ export async function recordFailedAttempt(
   db: D1Database,
   ipAddress: string | undefined,
   token: string,
-  attemptType: 'download' | 'receive'
+  attemptType: 'download' | 'receive' | 'login'
 ): Promise<void> {
   const identifier = `${ipAddress || 'unknown'}:${token}`;
   const now = new Date().toISOString();
@@ -99,7 +99,7 @@ export async function clearFailedAttempts(
   db: D1Database,
   ipAddress: string | undefined,
   token: string,
-  attemptType: 'download' | 'receive'
+  attemptType: 'download' | 'receive' | 'login'
 ): Promise<void> {
   const identifier = `${ipAddress || 'unknown'}:${token}`;
 

@@ -18,16 +18,20 @@ compatibility_flags = ["nodejs_compat"]
 # 環境変数
 # =====================================================
 # この設定はそのままデプロイされる想定です（本番安全side）。
-# AUTH_METHOD = "saml" のため、SESSION_SECRET などのシークレットが
-# 未設定の状態では全リクエストがログインページにリダイレクトされます
-# （＝フェイルクローズする）。認証設定を済ませるまでアプリが
-# 無防備に公開されることはありません。
+# AUTH_METHOD = "local" は管理者登録方式です。
+# 公開URLに最初にアクセスすると管理者登録画面が表示され、
+# その場で管理者アカウントを作成できます。
+# 管理者登録が済むまで、また未ログインの状態では
+# アプリの機能にはアクセスできません（フェイルクローズ）。
+#
+# SAML SSOを使う場合は AUTH_METHOD = "saml" に変更し、
+# 下記のSAML設定とシークレットを設定してください。
 #
 # ローカル開発で認証をスキップするには npm run dev を使用してください
 # （--var AUTH_METHOD:skip を自動的に付与します）。
 [vars]
-AUTH_METHOD = "saml"  # "saml" | "cloudflare-access" | "skip"
-SKIP_AUTH = "false"   # 後方互換用
+AUTH_METHOD = "local"  # "local" | "saml" | "cloudflare-access" | "skip"
+SKIP_AUTH = "false"    # 後方互換用
 EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換えてください
 SESSION_MAX_AGE = "86400"  # 1日（秒）
 
@@ -50,6 +54,8 @@ SESSION_MAX_AGE = "86400"  # 1日（秒）
 
 # シークレット（wrangler secret put で設定。.dev.vars.example 参照）
 # SESSION_SECRET - セッションJWT署名キー（32文字以上のランダム文字列）
+#                  未設定の場合は初回アクセス時に自動生成してD1に保存するため、
+#                  AUTH_METHOD = "local" では設定しなくても動作します
 # SAML_IDP_CERT  - IdP X.509証明書（Base64）
 
 # =====================================================
