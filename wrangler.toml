@@ -1,50 +1,43 @@
 name = "filewing"
 main = "src/index.ts"
-compatibility_date = "2024-04-01"
+compatibility_date = "2026-08-19"
 compatibility_flags = ["nodejs_compat"]
 
-# account_id は環境変数 CLOUDFLARE_ACCOUNT_ID で設定するか、
-# ローカルの .dev.vars に記載してください
+# =====================================================
+# リソースの自動プロビジョニング
+# =====================================================
+# d1_databases / r2_buckets には ID を意図的に記載していません。
+# ID を省略すると wrangler deploy 時に Cloudflare が
+# リソースを自動作成してバインディングに紐付けます（要 wrangler 4.45.0 以上）。
+# これにより「Deploy to Cloudflare」ボタンからの
+# ワンクリックデプロイが事前準備なしで動作します。
+#
+# account_id は環境変数 CLOUDFLARE_ACCOUNT_ID から取得されます。
 
-# 開発環境では認証をスキップ
+# =====================================================
+# 開発環境（トップレベル設定）
+# =====================================================
+# 注意: この [vars] は「ローカル開発用」です。
+# AUTH_METHOD = "skip" は認証を完全にバイパスするため、
+# この設定のままインターネットに公開してはいけません。
+# 本番デプロイは必ず --env production を使用してください
+# （npm run deploy が自動的に付与します）。
 [vars]
-SKIP_AUTH = "true"
-EMAIL_FROM = "noreply@example.com"  # 実際のEmail Routing検証済みアドレスに置き換えてください
-
-# 認証方式: 'saml' | 'cloudflare-access' | 'skip'
-# 省略時は環境変数から自動判定
-# AUTH_METHOD = "skip"
-
-# SAML設定（AUTH_METHOD='saml'の場合に必要）
-# SAML_ENTITY_ID = "https://your-domain.com"
-# SAML_IDP_SSO_URL = ""  # Google SAML SSO URL
-# SAML_IDP_ENTITY_ID = ""  # Google IdP Entity ID
-# SAML_CALLBACK_URL = "https://your-domain.com/auth/saml/callback"
-
-# セッション設定
+AUTH_METHOD = "skip"
+SKIP_AUTH = "true"  # 後方互換用
+EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換えてください
 SESSION_MAX_AGE = "86400"  # 1日（秒）
 APP_URL = "http://localhost:8787"
 
-# ドメイン制限（カンマ区切り、空=全ドメイン許可）
-# ALLOWED_DOMAINS = "company.com,partner.co.jp"
-
-# シークレット（wrangler secret putで設定）
-# SESSION_SECRET - セッションJWT署名キー（32文字以上のランダム文字列）
-# SAML_IDP_CERT - Google IdP X.509証明書（Base64）
-
-# R2バケット
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "filewing-bucket"
 
-# D1データベース
 [[d1_databases]]
 binding = "DB"
 database_name = "filewing-db"
-database_id = "YOUR_DATABASE_ID"  # 実際のIDに置き換えてください
 migrations_dir = "migrations"
 
-# Email Sending（Cloudflare Email Routing統合）
 [[send_email]]
 name = "EMAIL"
 
@@ -53,15 +46,37 @@ name = "EMAIL"
 crons = ["0 18 * * *"]
 
 # =====================================================
-# 本番環境設定
+# 本番環境設定（npm run deploy / デプロイボタンが使用）
 # =====================================================
-[env.production]
-# 認証方式を選択:
-# - AUTH_METHOD = "saml" : SAML SSO認証（ログアウトボタンあり）
-# - AUTH_METHOD = "cloudflare-access" : Cloudflare Access認証（ログアウトボタンなし）
-# vars = { AUTH_METHOD = "saml", SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com", SAML_ENTITY_ID = "...", ... }
-# vars = { AUTH_METHOD = "cloudflare-access", SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com", ACCESS_TEAM_NAME = "...", ACCESS_AUD = "..." }
-vars = { SKIP_AUTH = "false", EMAIL_FROM = "noreply@example.com" }  # EMAIL_FROMは実際のアドレスに置き換え
+# AUTH_METHOD = "saml" がデフォルトです。
+# SESSION_SECRET などのシークレットが未設定の場合は
+# 全リクエストがログインページにリダイレクトされる
+# （＝フェイルクローズする）ため、認証設定を済ませるまで
+# アプリが無防備に公開されることはありません。
+#
+# デプロイ後に以下を設定してください:
+#   1. wrangler secret put SESSION_SECRET --env production
+#   2. wrangler secret put SAML_IDP_CERT --env production
+#   3. SAML_* / APP_URL をIdPの値に合わせて書き換え
+#
+# Cloudflare Accessで認証する場合は
+# AUTH_METHOD = "cloudflare-access" に変更し、
+# ACCESS_TEAM_NAME / ACCESS_AUD を設定してください。
+[env.production.vars]
+AUTH_METHOD = "saml"
+SKIP_AUTH = "false"
+EMAIL_FROM = "noreply@example.com"  # Email Routing検証済みアドレスに置き換え
+SESSION_MAX_AGE = "86400"
+APP_URL = "https://your-domain.com"  # 実際のデプロイ先URLに置き換え
+
+# SAML設定（IdPの値に置き換えてください）
+SAML_ENTITY_ID = "https://your-domain.com"
+SAML_IDP_SSO_URL = ""  # IdPのSSO URL
+SAML_IDP_ENTITY_ID = ""  # IdPのEntity ID
+SAML_CALLBACK_URL = "https://your-domain.com/auth/saml/callback"
+
+# ドメイン制限（カンマ区切り、空=全ドメイン許可）
+# ALLOWED_DOMAINS = "company.com,partner.co.jp"
 
 [[env.production.r2_buckets]]
 binding = "R2_BUCKET"
@@ -70,11 +85,10 @@ bucket_name = "filewing-bucket"
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "filewing-db"
-database_id = "YOUR_DATABASE_ID"  # 実際のIDに置き換えてください
+migrations_dir = "migrations"
 
 [[env.production.send_email]]
 name = "EMAIL"
 
-# Cloudflare Access設定（本番環境で設定）
-# ACCESS_TEAM_NAME: Cloudflare Accessのチーム名
-# ACCESS_AUD: アプリケーションのAUD値
+[env.production.triggers]
+crons = ["0 18 * * *"]

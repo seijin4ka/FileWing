@@ -23,21 +23,22 @@
 # 依存関係インストール
 npm install
 
-# ローカルDBマイグレーション（wrangler.local.toml使用時）
-wrangler d1 migrations apply filewing-db --local -c wrangler.local.toml
+# ローカルDBマイグレーション
+npm run db:migrate
 
 # 開発サーバー起動（http://localhost:8787）
-wrangler dev -c wrangler.local.toml
+npm run dev
 
 # 型チェック
 npm run typecheck
 
-# 本番デプロイ
-wrangler deploy -c wrangler.local.toml --env production
+# 本番デプロイ（デプロイ → マイグレーションの順に実行）
+npm run deploy
 ```
 
-※ `npm run dev` / `npm run deploy` は wrangler.toml（テンプレート）を使用するため、
-  実際の開発・デプロイには `-c wrangler.local.toml` オプションを付けて直接実行してください。
+※ リソースIDを wrangler.toml に記載しない運用に変更したため、
+  `-c wrangler.local.toml` を付けずにそのまま npm スクリプトを実行できます。
+  D1・R2 はローカル実行時も本番デプロイ時も自動作成されます。
 
 ## プロジェクト構造
 
@@ -270,11 +271,34 @@ src/
 
 ## wrangler設定ファイル
 
-- **wrangler.toml**: テンプレート（機密情報なし、gitにコミット）
-- **wrangler.local.toml**: 実際のaccount_id/database_id（gitignored）
+- **wrangler.toml**: 唯一の設定ファイル（機密情報なし、gitにコミット）
+- **wrangler.local.toml**: 任意。個別に上書きしたい場合のみ使用（gitignored）
 
-開発時は `wrangler dev -c wrangler.local.toml` で起動。
-本番デプロイは `wrangler deploy -c wrangler.local.toml --env production`。
+### リソースの自動プロビジョニング
+
+`d1_databases` / `r2_buckets` に **リソースIDを記載していません**。
+ID を省略すると `wrangler deploy` 時に Cloudflare がリソースを自動作成して
+バインディングに紐付けます（wrangler 4.45.0 以上が必要）。
+
+- 公開リポジトリに database_id を載せずに済む
+- 「Deploy to Cloudflare」ボタンからのワンクリックデプロイが動作する
+- D1 のマイグレーションは **バインディング名 `DB`** を指定する
+  （データベース名を指定すると、DB名を変えた利用者の環境で失敗するため）
+
+### 環境の使い分け
+
+| 設定 | AUTH_METHOD | 用途 |
+|------|-------------|------|
+| トップレベル `[vars]` | `skip` | ローカル開発のみ。**公開厳禁** |
+| `[env.production.vars]` | `saml` | 本番。シークレット未設定時はログインへリダイレクトしてフェイルクローズ |
+
+本番デプロイは必ず `--env production` を使用する（`npm run deploy` が自動的に付与）。
+
+### デプロイボタン
+
+README 冒頭の `https://deploy.workers.cloudflare.com/?url=<リポジトリURL>` を使用。
+Cloudflare は `package.json` の `deploy` スクリプトを自動検出して実行する。
+シークレットは `.dev.vars.example` に定義したものがデプロイ時に入力を求められる。
 
 ## Email Sending設定
 

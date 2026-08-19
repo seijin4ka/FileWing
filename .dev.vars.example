@@ -1,0 +1,12 @@
+# シークレット設定例
+# ローカル開発時はこのファイルを .dev.vars にコピーして値を入れてください。
+# 本番環境では wrangler secret put <名前> --env production で設定します。
+# （「Deploy to Cloudflare」ボタン経由の場合はデプロイ時に入力を求められます）
+
+# セッションJWTの署名キー（32文字以上のランダム文字列）
+# 生成例: openssl rand -base64 32
+SESSION_SECRET=""
+
+# IdPのX.509証明書（Base64、改行なし）
+# Google Workspaceの場合は管理コンソールでダウンロードした証明書の中身
+SAML_IDP_CERT=""

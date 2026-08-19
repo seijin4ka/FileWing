@@ -2,6 +2,11 @@
 
 脱PPAP対応のセキュアなファイル共有システム。Cloudflare Workers + R2 + D1 でサーバーレス構築。
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/seijin4ka/FileWing)
+
+ボタンを押すとリポジトリのコピー作成からD1・R2の作成、デプロイまで自動で行われます。
+詳細は[クイックスタート](#クイックスタート)を参照してください。
+
 ## 特徴
 
 - **セキュアなファイル共有**: パスワード保護、有効期限付きリンク、ダウンロード回数制限
@@ -51,11 +56,25 @@ FileWingは2つの認証方式をサポートしています。`AUTH_METHOD`環�
 
 ## クイックスタート
 
-### 前提条件
+### ワンクリックデプロイ（推奨）
+
+ページ冒頭の **Deploy to Cloudflare** ボタンからデプロイすると、以下が自動的に実行されます。
+
+1. リポジトリのコピーを自分のGitHub/GitLabアカウントに作成
+2. D1データベースとR2バケットを自動作成（IDの調査・記入は不要）
+3. `npm run deploy` によるデプロイとDBマイグレーション
+
+**デプロイ直後の状態について**
+
+本番設定は `AUTH_METHOD = "saml"` かつシークレット未設定のため、
+すべてのアクセスがログインページにリダイレクトされます（フェイルクローズ）。
+アプリが無防備に公開されることはありません。
+下記「認証設定」を完了すると利用可能になります。
+
+### 前提条件（CLIで操作する場合）
 
 - Node.js 18以上
 - Cloudflareアカウント
-- wrangler CLI
 
 ### ローカル開発
 
@@ -63,98 +82,67 @@ FileWingは2つの認証方式をサポートしています。`AUTH_METHOD`環�
 # 依存関係インストール
 npm install
 
-# wrangler.local.tomlを作成（下記「本番デプロイ」セクション参照）
-# account_id と database_id を設定
-
 # ローカルDBマイグレーション
-wrangler d1 migrations apply filewing-db --local -c wrangler.local.toml
+npm run db:migrate
 
 # 開発サーバー起動
-wrangler dev -c wrangler.local.toml
+npm run dev
 ```
 
-http://localhost:8787 でアクセス。開発環境では認証がスキップされ、テストユーザーとして自動ログインします。
+http://localhost:8787 でアクセス。ローカルのD1・R2は初回起動時に自動作成されます。
+開発環境（トップレベル設定）は `AUTH_METHOD = "skip"` のため認証がスキップされ、
+テストユーザーとして自動ログインします。
 
-### 本番デプロイ
+> **注意**: `AUTH_METHOD = "skip"` は認証を完全にバイパスします。
+> この設定のままインターネットに公開しないでください。
+> 本番デプロイは必ず `--env production` を使用してください（`npm run deploy` が自動的に付与します）。
 
-#### 1. Cloudflareリソース作成
+### 本番デプロイ（CLI）
 
 ```bash
-# D1データベース作成
-wrangler d1 create filewing-db
+# Cloudflareにログイン
+npx wrangler login
 
-# R2バケット作成
-wrangler r2 bucket create filewing-bucket
+# デプロイ（D1・R2の作成 → デプロイ → マイグレーション）
+npm run deploy
 ```
 
-#### 2. ローカル設定ファイル作成
+`npm run deploy` は以下を順に実行します。
 
-`wrangler.local.toml` を作成し、実際のIDを設定（このファイルはgitignored）:
+1. `wrangler deploy --env production`
+   初回実行時にD1データベースとR2バケットを自動作成してバインディングに紐付けます
+2. `wrangler d1 migrations apply DB --remote --env production`
+   作成されたD1にマイグレーションを適用します（データベース名ではなく
+   バインディング名 `DB` を指定するため、DB名を変更しても動作します）
 
-```toml
-name = "filewing"
-main = "src/index.ts"
-compatibility_date = "2024-04-01"
-compatibility_flags = ["nodejs_compat"]
-account_id = "your-account-id"
+リソースIDは `wrangler.toml` に記載していません。ID省略時は
+Cloudflareが自動でリソースを作成するため、公開リポジトリにIDを載せずに済みます。
+（この自動プロビジョニングには wrangler 4.45.0 以上が必要です）
 
-[vars]
-SKIP_AUTH = "true"
-EMAIL_FROM = "noreply@your-verified-domain.com"
+#### デプロイ後の設定
 
-[[r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "filewing-bucket"
+`wrangler.toml` の `[env.production.vars]` を実際の値に置き換えてください。
 
-[[d1_databases]]
-binding = "DB"
-database_name = "filewing-db"
-database_id = "your-database-id"
-migrations_dir = "migrations"
+| 変数 | 説明 |
+|------|------|
+| `APP_URL` | 実際のデプロイ先URL |
+| `EMAIL_FROM` | Email Routingで検証済みの送信元アドレス |
+| `SAML_*` | IdPから取得した値 |
 
-[[send_email]]
-name = "EMAIL"
+シークレットはコマンドで設定します（`.dev.vars.example` を参照）。
 
-[triggers]
-crons = ["0 18 * * *"]
-
-[env.production]
-vars = { SKIP_AUTH = "false", EMAIL_FROM = "noreply@your-verified-domain.com" }
-
-[[env.production.r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "filewing-bucket"
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "filewing-db"
-database_id = "your-database-id"
-
-[[env.production.send_email]]
-name = "EMAIL"
+```bash
+wrangler secret put SESSION_SECRET --env production
+wrangler secret put SAML_IDP_CERT --env production
 ```
 
-開発時は `wrangler dev -c wrangler.local.toml` で起動します。
-
-#### 3. Email Routing設定
+#### Email Routing設定
 
 Cloudflareダッシュボードで:
 1. Email → Email Routing を有効化
 2. 送信元ドメインを検証
 
-#### 4. DBマイグレーション
-
-```bash
-wrangler d1 migrations apply filewing-db -c wrangler.local.toml --env production --remote
-```
-
-#### 5. デプロイ
-
-```bash
-wrangler deploy -c wrangler.local.toml --env production
-```
-
-#### 6. 認証設定
+### 認証設定
 
 ##### オプションA: SAML SSO認証（推奨）
 

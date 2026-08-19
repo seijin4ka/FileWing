@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --env production",
-    "db:migrate": "wrangler d1 migrations apply filewing-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply filewing-db --env production",
+    "deploy": "wrangler deploy --env production && wrangler d1 migrations apply DB --remote --env production",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:migrate:prod": "wrangler d1 migrations apply DB --remote --env production",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -15,8 +15,8 @@
     "mimetext": "^3.0.28"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240419.0",
+    "@cloudflare/workers-types": "^5.20260819.1",
     "typescript": "^5.4.5",
-    "wrangler": "^3.53.0"
+    "wrangler": "^4.124.0"
   }
 }
